@@ -37,7 +37,7 @@ If the authentication type is <b>Azure</b>, then you will need to supply the fol
 ## Standard Modules
 Standard modules are used to interact against a single MS SQL server.
 
-* <b>query -o QUERY</b> - Execute an arbitary SQL query
+* <b>query -o QUERY</b> - Execute an arbitrary SQL query
 * <b>whoami</b> - See what user you are logged in as
 * <b>mapped</b> - See what user you are mapped to
 * <b>roles</b> - Enumerate if the user has public and/or sysadmin roles mapped
@@ -47,10 +47,10 @@ Standard modules are used to interact against a single MS SQL server.
 * <b>smb -o SHARE</b> - Capture NetNTLMv2 hash
 * <b>enablexp</b> - Enable xp_cmdshell (requires sysadmin role or similar)
 * <b>disablexp</b> - Disable xp_cmdshell (requires sysadmin role or similar)
-* <b>xpcmd -o COMMAND</b> - Execute an arbitary system command (requires sysadmin role or similar)
+* <b>xpcmd -o COMMAND</b> - Execute an arbitrary system command (requires sysadmin role or similar)
 * <b>enableole</b> - Enable OLE Automation Procedures (requires sysadmin role or similar)
 * <b>disableole</b> - Disable OLE Automation Procedures (requires sysadmin role or similar)
-* <b>olecmd -o COMMAND</b> - Execute an arbitary system command (requires sysadmin role or similar)
+* <b>olecmd -o COMMAND</b> - Execute an arbitrary system command (requires sysadmin role or similar)
 * <b>enableclr</b> - Enable Custom CLR Assemblies (requires sysadmin role or similar)
 * <b>disableclr</b> - Disable Custom CLR Assemblies (requires sysadmin role or similar)
 * <b>impersonate</b> - Enumerate any user accounts that can be impersonated
@@ -59,20 +59,20 @@ Standard modules are used to interact against a single MS SQL server.
 ## Impersonation Modules
 Impersonation modules are used to interact against a single MS SQL server, under the context of an impersonated SQL user.
 
-* <b>iquery -i IMPERSONATEUSER -o QUERY</b> - Execute an arbitary SQL query as an impersonated user
+* <b>iquery -i IMPERSONATEUSER -o QUERY</b> - Execute an arbitrary SQL query as an impersonated user
 * <b>ienablexp -i IMPERSONATEUSER</b> - Enable xp_cmdshell (requires sysadmin role or similar)
 * <b>idisablexp -i IMPERSONATEUSER</b>- Disable xp_cmdshell (requires sysadmin role or similar)
-* <b>ixpcmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitary system command (requires sysadmin role or similar)
+* <b>ixpcmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitrary system command (requires sysadmin role or similar)
 * <b>ienableole -i IMPERSONATEUSER</b> - Enable OLE Automation Procedures (requires sysadmin role or similar)
 * <b>idisableole -i IMPERSONATEUSER</b> - Disable OLE Automation Procedures (requires sysadmin role or similar)
-* <b>iolecmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitary system command (requires sysadmin role or similar)
+* <b>iolecmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitrary system command (requires sysadmin role or similar)
 
 ## Linked SQL Server Modules
 Linked SQL Server modules are effective when you are able to interact with a linked SQL server via an established connection.
 
 * <b>ldatabases</b> -l LINKEDSERVERNAME - Show all databases present on the Linked SQL server
 * <b>ltables</b> -l LINKEDSERVERNAME - Show all tables in the database you are connected to on the Linked SQL server
-* <b>lquery</b> -l LINKEDSERVERNAME -o QUERY - Execute an arbitary SQL query on a linked SQL server
+* <b>lquery</b> -l LINKEDSERVERNAME -o QUERY - Execute an arbitrary SQL query on a linked SQL server
 
 
 ## Examples
