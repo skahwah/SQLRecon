@@ -5,7 +5,7 @@ A C# MS-SQL toolkit designed for offensive reconnaissance and post-exploitation.
 
 
 # Usage
-You can grab a copy of encrypt from the [releases](https://github.com/skahwah/SQLRecon/releases) page. Alternatively, feel free to compile the solution yourself This should be as straight forward as cloning the repo, double clicking the solution file and building.
+You can grab a copy of SQLRecon from the [releases](https://github.com/skahwah/SQLRecon/releases) page. Alternatively, feel free to compile the solution yourself This should be as straight forward as cloning the repo, double clicking the solution file and building.
 
 ## Mandatory Arguments
 
