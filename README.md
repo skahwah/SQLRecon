@@ -69,11 +69,12 @@ Impersonation modules are used to interact against a single MS SQL server, under
 
 ## Linked SQL Server Modules
 Linked SQL Server modules are effective when you are able to interact with a linked SQL server via an established connection.
-
-* <b>ldatabases</b> -l LINKEDSERVERNAME - Show all databases present on the Linked SQL server
-* <b>ltables</b> -l LINKEDSERVERNAME - Show all tables in the database you are connected to on the Linked SQL server
-* <b>lquery</b> -l LINKEDSERVERNAME -o QUERY - Execute an arbitrary SQL query on a linked SQL server
-
+* <b>lquery -l LINKEDSERVERNAME -o QUERY</b> - Execute an arbitary SQL query on the linked SQL server
+* <b>lwhoami</b> - See what user you are logged in as on the linked SQL server
+* <b>lroles</b> - Enumerate if the linked SQL server user has public and/or sysadmin roles mapped
+* <b>ldatabases -l LINKEDSERVERNAME</b> - Show all databases present on the linked SQL server
+* <b>ltables -l LINKEDSERVERNAME -o DATABASE</b> - Show all tables in the supplied database on the linked SQL server
+* <b>lsmb -l LINKEDSERVERNAME -o SHARE</b> - Capture NetNTLMv2 hash from linked SQL server
 
 ## Examples
 See the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.  for detailed examples.
@@ -83,4 +84,17 @@ The below techniques are on the roadmap for future releases
 * Command Execution: Custom Extended Stored Procedures <a href="https://stackoverflow.com/questions/12749210/how-to-create-a-simple-dll-for-a-custom-sql-server-extended-stored-procedure">Reference 1</a>, <a href="https://raw.githubusercontent.com/nullbind/Powershellery/master/Stable-ish/MSSQL/xp_evil_template.cpp">Reference 2</a>
 * Command Execution: Custom CLR Assemblies <a href="https://www.netspi.com/blog/technical/adversary-simulation/attacking-sql-server-clr-assemblies/">Reference 1</a>
 * Command Execution: Agent Jobs <a href="https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/3-command-execution.md#agent-jobs-cmdexec-powershell-activex-etc">Reference 1</a>
-* [MAYBE] Persistence Methods <a href="https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/6-persistence.md#startup-stored-procedures">Reference 1</a>
+
+## History
+<b>v1.2</b>
+* Created lsmb module
+* Created lwhoami module
+* Created lroles module
+
+<b>v1.1</b>
+* Fixed oldcmd module
+* Fixed iolecmd module
+* Fixed ldatabases module
+* Fixed ltables module
+* Cleaned up code base
+* Corrected inconsistencies in help menu
