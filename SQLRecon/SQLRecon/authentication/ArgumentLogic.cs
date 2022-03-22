@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using SQLRecon.Auth;
 using SQLRecon.Modules;
 
 namespace SQLRecon.Auth
@@ -20,7 +19,6 @@ namespace SQLRecon.Auth
         private static String option = "";
         private static String linkedSqlServer = "";
         private static String impersonate = "";
-
 
         public void AuthenticationType(Dictionary<string, string> argDict)
         {
@@ -166,6 +164,36 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("ltables"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) and database on the linked SQL server (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lsmb"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) and SMB path (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("ldatabases"))
             {
                 if (!argDict.ContainsKey("l"))
@@ -180,7 +208,21 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
-            else if (argDict["m"].ToLower().Equals("ltables"))
+            else if (argDict["m"].ToLower().Equals("lwhoami"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lroles"))
             {
                 if (!argDict.ContainsKey("l"))
                 {
@@ -308,6 +350,11 @@ namespace SQLRecon.Auth
             }
 
             // this is effectively a huge module switch
+
+
+            // ##########################################
+            // ########## standard sql modules ##########
+            // ##########################################
             // if the module type is querylogin, then execute the querylogin sql query
             if (module.Equals("whoami"))
             {
@@ -425,27 +472,52 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Additional Links: ");
                 ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "EXEC ('sp_linkedservers');");
             }
-            //linked 
 
+            // ########################################
+            // ########## linked sql modules ##########
+            // ########################################
             else if (module.Equals("ldatabases"))
             {
                 Console.Out.WriteLine("\n[+] Databases on " + linkedSqlServer + " via " + sqlServer);
-                option = "SELECT name FROM " + linkedSqlServer + ".master.sys.databases";
-                option = "SELECT USER_NAME() FROM " + linkedSqlServer;
-                ExecuteLinkedQuery ExecuteLinkedQuery = new ExecuteLinkedQuery(con, option);
+                option = "select name from sys.databases;";
+                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
             }
             else if (module.Equals("ltables"))
             {
                 Console.Out.WriteLine("\n[+] Tables in database " + database + " on " + linkedSqlServer + " via " + sqlServer);
-                option = "SELECT CONCAT(TABLE_SCHEMA,'.',TABLE_NAME) FROM " + linkedSqlServer + "." + database + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
-                ExecuteLinkedQuery ExecuteLinkedQuery = new ExecuteLinkedQuery(con, option);
+                option = "select * from " + option + ".INFORMATION_SCHEMA.TABLES;";
+                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
             }
             else if (module.Equals("lquery"))
             {
                 Console.Out.WriteLine("\n[+] Executing " + option + " on " + linkedSqlServer + " via " + sqlServer);
-                ExecuteCustomLinkedQuery ExecuteCustomLinkedQuery = new ExecuteCustomLinkedQuery(con, linkedSqlServer, option);
+                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
             }
-            // impersonation
+            else if (module.Equals("lsmb"))
+            {
+                Console.Out.WriteLine("\n[+] Sending SMB Request from " + linkedSqlServer + " to " + option + " via " + sqlServer);
+                CaptureLinkedHash CaptureLinkedHash = new CaptureLinkedHash(con, linkedSqlServer, option);
+            }
+            else if (module.Equals("lwhoami"))
+            {
+                Console.Out.WriteLine("\n[+] Executing 'SELECT SYSTEM_USER' on " + linkedSqlServer + " via " + sqlServer);
+
+                Console.Out.WriteLine("\n[+] Logged in as: ");
+                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, "SELECT SYSTEM_USER;");
+            }
+            else if (module.Equals("lroles"))
+            {
+                Console.Out.WriteLine("\n[+] Enumerating roles on " + linkedSqlServer + " via " + sqlServer);
+
+                LinkedRoles LinkedRoles = new LinkedRoles();
+
+                LinkedRoles.LinkedPublic(con, linkedSqlServer);
+                LinkedRoles.LinkedSysAdmin(con, linkedSqlServer);
+            }
+
+            // ###############################################
+            // ########## impersonation sql modules ##########
+            // ###############################################
             else if (module.Equals("iquery"))
             {
                 Console.Out.WriteLine("\n[+] Executing " + option + " as " + impersonate + " on " + sqlServer);
@@ -499,7 +571,6 @@ namespace SQLRecon.Auth
                 Console.WriteLine("[!] ERROR: Module " + module + " does not exist\n");
             }
             
-
         } // end EvaluateTheArguments
     }
 }
