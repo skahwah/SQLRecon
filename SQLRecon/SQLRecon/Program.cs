@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using SQLRecon.Modules;
 using SQLRecon.Auth;
 
@@ -26,7 +25,7 @@ namespace SQLRecon
                 ArgumentLogic ArgumentLogic = new ArgumentLogic();
                 ArgumentLogic.AuthenticationType(argDict);
             }
-            catch (NullReferenceException ex)
+            catch (NullReferenceException)
             {
 
             }
@@ -49,7 +48,7 @@ namespace SQLRecon
 
                 return ret;
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException)
             {
                 Console.WriteLine("");
                 Console.WriteLine("\n[!] You specified duplicate switches. Check your command again.\n");
