@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data.SqlClient;
-using System.Text;
 
 namespace SQLRecon.Modules
 {
@@ -30,9 +28,8 @@ namespace SQLRecon.Modules
             {
                 Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
             }
-            catch (InvalidOperationException iex)
+            catch (InvalidOperationException)
             {
-                //Console.WriteLine("[!] ERROR: Invalid Operation\n");
             }
         }
     }
@@ -83,49 +80,16 @@ namespace SQLRecon.Modules
             {
                 Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
             }
-            catch (InvalidOperationException iex)
+            catch (InvalidOperationException)
             {
-                //Console.WriteLine("[!] ERROR: Invalid Operation\n");
             }
             
         }
     }
+
     public class ExecuteLinkedQuery
     {
-        public ExecuteLinkedQuery(SqlConnection con, String query)
-        {
-            initialize(con, query);
-        }
-        // this simply takes a SQL query, executes it and prints to console
-        public void initialize(SqlConnection con, String query)
-        {
-            try
-            {
-                //SqlCommand command = new SqlCommand("select * from openquery(\"" + linkedSQLServer + "\", 'show databases')", con);
-                SqlCommand command = new SqlCommand(query, con);
-                SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
-                while (reader.Read() == true)
-                {
-                    Console.WriteLine(reader[0]);
-                }
-                Console.WriteLine("");
-                reader.Close();
-            }
-            catch (SqlException ex)
-            {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
-            }
-            catch (InvalidOperationException iex)
-            {
-                //Console.WriteLine("[!] ERROR: Invalid Operation\n");
-            }
-        }
-    }
-
-    public class ExecuteCustomLinkedQuery
-    {
-        public ExecuteCustomLinkedQuery(SqlConnection con, String linkedSQLServer, String query)
+        public ExecuteLinkedQuery(SqlConnection con, String linkedSQLServer, String query)
         {
             initialize(con, linkedSQLServer, query);
         }
@@ -171,9 +135,8 @@ namespace SQLRecon.Modules
             {
                 Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
             }
-            catch (InvalidOperationException iex)
+            catch (InvalidOperationException)
             {
-                //Console.WriteLine("[!] ERROR: Invalid Operation\n");
             }
         }
     }
@@ -204,9 +167,8 @@ namespace SQLRecon.Modules
             {
                 Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
             }
-            catch (InvalidOperationException iex)
+            catch (InvalidOperationException)
             {
-                //Console.WriteLine("[!] ERROR: Invalid Operation\n");
             }
         }
     }
