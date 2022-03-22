@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
@@ -33,7 +32,7 @@ namespace SQLRecon.Modules
                 reader.Close();
                 
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
                 
             }
