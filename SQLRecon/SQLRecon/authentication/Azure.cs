@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Data.SqlClient;
-using SQLRecon.Auth;
 
 namespace SQLRecon.Auth
 {
