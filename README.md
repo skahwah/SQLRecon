@@ -95,11 +95,12 @@ See the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.  for detail
 ## Roadmap
 The below techniques are on the roadmap for future releases
 * Command Execution: Agent Jobs <a href="https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/3-command-execution.md#agent-jobs-cmdexec-powershell-activex-etc">Reference 1</a>
-* Look into creating l
+* Look into creating lclr
 
 ## History
 <details>
 <summary>v2.0</summary>
+
 * Created clr
 * Created ienableclr
 * Created idisbleclr
@@ -130,6 +131,7 @@ The below techniques are on the roadmap for future releases
 
 <details>
 <summary>v1.2</summary>
+
 * Created lsmb module
 * Created lwhoami module
 * Created lroles module
@@ -137,6 +139,7 @@ The below techniques are on the roadmap for future releases
 
 <details>
 <summary>v1.1</summary>
+
 * Fixed oldcmd module
 * Fixed iolecmd module
 * Fixed ldatabases module
