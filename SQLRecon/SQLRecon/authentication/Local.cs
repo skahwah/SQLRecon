@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Auth
@@ -12,6 +12,6 @@ namespace SQLRecon.Auth
 
             TestAuthentication TestAuthentication = new TestAuthentication();
             return TestAuthentication.Send(conString, user, sqlServer);
-        } // end Send
+        } 
     }
 }

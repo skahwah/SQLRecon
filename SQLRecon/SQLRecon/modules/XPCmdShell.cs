@@ -1,117 +1,109 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
 {
     public class XPCmdShell
     {
-        // this will enable advanced options then enable xp_cmdshell 
-        public void Enable(SqlConnection con, String impersonate = "null")
+        SQLQuery sqlQuery = new SQLQuery();
+        Configure config = new Configure();
+
+        // this executes a command against a sql server
+        public void StandardCommand(SqlConnection con, String cmd)
         {
-            if (!impersonate.Equals("null"))
+
+            string sqlOutput = "";
+            
+            // first check to see if xp_cmdshell s is enabled
+            sqlOutput = config.Check(con, "xp_cmdshell");
+
+            if (!sqlOutput.Contains("1"))
             {
-                EnableDisable(con, "1", impersonate);
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (enablexp).");
+                return;
+            }
+
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con, "EXEC xp_cmdshell '" + cmd + "';");
+
+            if (sqlOutput.Contains("permission"))
+            {
+                Console.WriteLine("\n[!] ERROR: The current user does not have permissions to issue xp_cmdshell commands");
+            }
+            else if (sqlOutput.Contains("blocked"))
+            {
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (enablexp)");
             }
             else
             {
-                EnableDisable(con, "1");
+                // this is the output
+                Console.WriteLine(sqlOutput);
             }
-        } // end Enable
+        } 
 
-        // this will disable XPCmdShell
-        public void Disable(SqlConnection con, String impersonate = "null")
+        // this executes a command against a sql server using impersonation
+        public void ImpersonateCommand(SqlConnection con, String cmd, String impersonate)
         {
-            if (!impersonate.Equals("null"))
+            string sqlOutput = "";
+
+            // first check to see if xp_cmdshell s is enabled
+            sqlOutput = config.Check(con, "xp_cmdshell", impersonate);
+
+            if (!sqlOutput.Contains("1"))
             {
-                EnableDisable(con, "0", impersonate);
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (ienablexp).");
+                return;
+            }
+
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "'; EXEC xp_cmdshell '" + cmd + "';");
+
+            if (sqlOutput.Contains("permission"))
+            {
+                Console.WriteLine("\n[!] ERROR: The current user does not have permissions to enable xp_cmdshell commands");
+            }
+            else if (sqlOutput.Contains("blocked"))
+            {
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (ienablexp)");
             }
             else
             {
-                EnableDisable(con, "0");
-            }
-        } // end Disable
+                // this is the output
+                Console.WriteLine(sqlOutput);
+            }   
+        }
 
-        // this will execute an arbitrary command
-        public void Command(SqlConnection con, String cmd, String impersonate = "null")
+        // this executes a command against a linked sql server using 
+        public void LinkedCommand(SqlConnection con, String cmd, String linkedSqlServer)
         {
-            try
+
+            string sqlOutput = "";
+
+            // first check to see if xp_cmdshell is enabled
+            sqlOutput = config.CheckLinked(con, "xp_cmdshell", linkedSqlServer);
+
+            if (!sqlOutput.Contains("1"))
             {
-
-                SqlCommand command = new SqlCommand();
-
-                if (!impersonate.Equals("null"))
-                {
-                    command = new SqlCommand("EXECUTE AS LOGIN = '" + impersonate + "'; EXEC xp_cmdshell '" + cmd + "';", con);
-                }
-                else
-                {
-                    command = new SqlCommand("EXEC xp_cmdshell '" + cmd + "';", con);
-                }
-
-                SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
-                reader.Read();
-                Console.WriteLine(reader[0]);
-                Console.WriteLine("");
-                reader.Close();
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (ienablexp).");
+                return;
             }
-            catch (SqlException ex)
-            {
-                if (ex.Errors[0].Message.ToString().Contains("permission"))
-                {
-                    Console.WriteLine("\n[!] ERROR: The current user does not have permissions to enable xp_cmdshell commands\n");
-                }
-                else if (ex.Errors[0].Message.ToString().Contains("blocked"))
-                {
-                    Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell\n");
 
-                }
-                else
-                {
-                    Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
-                }
-                
+            sqlOutput = sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select 1; exec master..xp_cmdshell ''" + cmd + "''");
+
+            if (sqlOutput.Contains("permission"))
+            {
+                Console.WriteLine("\n[!] ERROR: The current user does not have permissions to enable xp_cmdshell commands");
             }
-        } // end Command
-
-        public void EnableDisable(SqlConnection con, String val, String impersonate = "null")
-        {
-            try
+            else if (sqlOutput.Contains("blocked"))
             {
-                SqlCommand command = new SqlCommand();
-
-                if (!impersonate.Equals("null"))
-                {
-                    command = new SqlCommand("EXECUTE AS LOGIN = '" + impersonate + "'; EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', " + val + "; RECONFIGURE;", con);
-                }
-                else
-                {
-                    command = new SqlCommand("EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', " + val + "; RECONFIGURE;", con);
-                }
-
-                SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
-                reader.Read();
-
-                if (!reader.HasRows && val.Equals("0"))
-                {
-                    Console.WriteLine("[+] Successfully disabled xp_cmdshell.\n");
-                }
-                else if (!reader.HasRows && val.Equals("1"))
-                {
-                    Console.WriteLine("[+] Successfully enabled xp_cmdshell.\n");
-                }
-                else
-                {
-                    Console.WriteLine(reader[0]);
-                    Console.WriteLine("");
-                }
-                reader.Close();
+                Console.WriteLine("\n[!] ERROR: You need to enable xp_cmdshell (lenablexp)");
             }
-            catch (SqlException ex)
+            else
             {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
-            }            
+                // this is the output
+                if (sqlOutput.Contains("1"))
+                {
+                    Console.WriteLine("\nSUCCESS: Command Executed");
+                }
+            }
         }
     }
 }

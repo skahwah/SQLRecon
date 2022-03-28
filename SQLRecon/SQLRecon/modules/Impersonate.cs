@@ -1,41 +1,26 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
 {
-    public class EnumImpersonation
+    public class Impersonate
     {
-        public EnumImpersonation(SqlConnection con)
-        {
-            initialize(con);
-        }
+        SQLQuery sqlQuery = new SQLQuery();
 
         // this checks to see if any logins can be impersonated on the sql server
-        public void initialize(SqlConnection con)
+        public void Check(SqlConnection con)
         {
-            try
+            string sqlOutput = "";
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con, "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';");
+
+            if (sqlOutput.Contains("name"))
             {
-                SqlCommand command = new SqlCommand("SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';", con);
-                SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
-                if (reader.HasRows)
-                {
-                    while (reader.Read() == true)
-                    {
-                        Console.WriteLine(reader[0]);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("\nNo logins can be impersonated\n");
-                }
-                reader.Close();
-                
+                Console.WriteLine(sqlOutput);
             }
-            catch (InvalidOperationException)
+            else
             {
-                
+                Console.WriteLine("\nNo logins can be impersonated");
             }
-        } //end initialize
+        } 
     }
 }

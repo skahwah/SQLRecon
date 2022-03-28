@@ -1,175 +1,222 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Modules
 {
-    public class ExecuteQuery
+    public class SQLQuery
     {
-        public ExecuteQuery(SqlConnection con, String query)
+        // Use this if the output is expected to just have 1 value to return
+        public string ExecuteQuery(SqlConnection con, String query)
         {
-            initialize(con, query);
-        }
-        // this simply takes a SQL query, executes it and prints to console
-        public void initialize(SqlConnection con, String query)
-        {
+            string sqlString = "\n";
+
             try
             {
                 SqlCommand command = new SqlCommand(query, con);
                 SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
                 while (reader.Read() == true)
                 {
-                    Console.WriteLine(reader[0]);
+                    sqlString += reader[0];
                 }
-                Console.WriteLine("");
                 reader.Close();
             }
             catch (SqlException ex)
             {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
+                sqlString += "[!] ERROR: " + ex.Errors[0].Message.ToString();
             }
             catch (InvalidOperationException)
             {
             }
-        }
-    }
 
-    public class ExecuteCustomQuery
-    {
-        public ExecuteCustomQuery(SqlConnection con, String query)
-        {
-            initialize(con, query);
+            return sqlString;
         }
-        public void initialize(SqlConnection con, String query)
+
+        // Use this if the output is expected to just have over 1 item, row, column, etc
+        public string ExecuteCustomQuery(SqlConnection con, String query)
         {
+            string sqlString = "\n\n";
+
             try
             {
                 SqlCommand command = new SqlCommand(query, con);
-                Console.WriteLine("");
-                using (SqlDataReader reader = command.ExecuteReader())
+                SqlDataReader reader = command.ExecuteReader();
+                using (reader)
                 {
-                    
                     if (reader.HasRows)
                     {
                         int hyphenCount = 0;
                         string columnName = "";
+                        int columnCount = 0;
                         // print the column names
                         for (int i = 0; i < reader.FieldCount; i++)
                         {
-                            columnName = reader.GetName(i) + " | ";
-                            Console.Write(columnName);
+                            if (reader.GetName(i).Equals(""))
+                            {
+                                // on occasion, there may not be a column name returned, so we add one.
+                                columnName = "column" + i.ToString() + " | ";
+                            }
+                            else
+                            { 
+                                columnName = reader.GetName(i) + " | ";
+                            }
+                            sqlString += columnName;
                             hyphenCount += columnName.Length;
+                            columnCount += 1;
                         }
-                        Console.WriteLine("");
-                        Console.WriteLine(new String('-', hyphenCount));
 
+                        sqlString += "\n";
+                        sqlString += new String('-', hyphenCount);
+                        sqlString += "\n";
+
+                        // get data
                         while (reader.Read())
                         {
-                            // get data
-                            for (int i = 0; i < reader.FieldCount; i++)
+                            // formatting if there is only 1 column
+                            if (columnCount <= 1)
                             {
-                                Console.Write(reader.GetValue(i) + " | ");
-
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    sqlString += reader.GetValue(i) + " | " + "\n";
+                                }
                             }
-                            Console.WriteLine("");
+                            // formatting if there is more than 1 column
+                            else
+                            { 
+                                
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    if (i == (columnCount - 1))
+                                    {
+                                        sqlString += reader.GetValue(i) + " | \n";
+                                    }
+                                    else
+                                    {
+                                        sqlString += reader.GetValue(i) + " | ";
+                                    }
+                                }
+                            }
                         }
+
+                        // remove the last space pipe space.
+                        sqlString = sqlString.Remove(sqlString.Length - 2);
                     }
                 }
+                reader.Close();
             }
             catch (SqlException ex)
             {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
+                sqlString += ex.Errors[0].Message.ToString();
             }
             catch (InvalidOperationException)
             {
             }
-            
+            return sqlString;
         }
-    }
 
-    public class ExecuteLinkedQuery
-    {
-        public ExecuteLinkedQuery(SqlConnection con, String linkedSQLServer, String query)
+        public string ExecuteLinkedQuery(SqlConnection con, String linkedSQLServer, String query)
         {
-            initialize(con, linkedSQLServer, query);
-        }
-        // this simply takes a SQL query, executes it on a linked server and prints to console
-        public void initialize(SqlConnection con, String linkedSQLServer, String query)
-        {
+            string sqlString = "\n";
+
             try
             {
                 SqlCommand command = new SqlCommand("select * from openquery(\"" + linkedSQLServer + "\", '" + query + "')", con);
-                Console.WriteLine("");
-                using (SqlDataReader reader = command.ExecuteReader())
-                {
-
-                    if (reader.HasRows)
-                    {
-                        int hyphenCount = 0;
-                        string columnName = "";
-                        // print the column names
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            columnName = reader.GetName(i) + " | ";
-                            Console.Write(columnName);
-                            hyphenCount += columnName.Length;
-                        }
-                        Console.WriteLine("");
-                        Console.WriteLine(new String('-', hyphenCount));
-
-                        while (reader.Read())
-                        {
-                            // get data
-                            for (int i = 0; i < reader.FieldCount; i++)
-                            {
-                                Console.Write(reader.GetValue(i) + " | ");
-
-                            }
-                            Console.WriteLine("");
-                        }
-                    }
-                }
-
-            }
-            catch (SqlException ex)
-            {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
-            }
-            catch (InvalidOperationException)
-            {
-            }
-        }
-    }
-
-    public class SearchKeyword
-    {
-        public SearchKeyword(SqlConnection con, String query)
-        {
-            initialize(con, query);
-        }
-        // this searches a database for column names which match a supplied seeach term
-        public void initialize(SqlConnection con, String query)
-        {
-            try
-            {
-                SqlCommand command = new SqlCommand(query, con);
                 SqlDataReader reader = command.ExecuteReader();
-                Console.WriteLine("");
                 while (reader.Read() == true)
                 {
-                    Console.WriteLine("Table name: " + reader[0]);
-                    Console.WriteLine("Column name: " + reader[1]);
+                    sqlString += reader[0];
                 }
-                Console.WriteLine("");
                 reader.Close();
             }
             catch (SqlException ex)
             {
-                Console.WriteLine("\n[!] ERROR: " + ex.Errors[0].Message.ToString() + "\n");
+                sqlString += "[!] ERROR: " + ex.Errors[0].Message.ToString();
             }
             catch (InvalidOperationException)
             {
             }
+
+            return sqlString;
+        }
+
+        public string ExecuteLinkedCustomQuery(SqlConnection con, String linkedSQLServer, String query)
+        {
+            string sqlString = "\n\n";
+
+            try
+            {
+                SqlCommand command = new SqlCommand("select * from openquery(\"" + linkedSQLServer + "\", '" + query + "')", con);
+                SqlDataReader reader = command.ExecuteReader();
+                using (reader)
+                {
+                    if (reader.HasRows)
+                    {
+                        int hyphenCount = 0;
+                        string columnName = "";
+                        int columnCount = 0;
+                        // print the column names
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            if (reader.GetName(i).Equals(""))
+                            {
+                                // on occasion, there may not be a column name returned, so we add one.
+                                columnName = "column" + i.ToString() + " | ";
+                            }
+                            else
+                            {
+                                columnName = reader.GetName(i) + " | ";
+                            }
+                            sqlString += columnName;
+                            hyphenCount += columnName.Length;
+                            columnCount += 1;
+                        }
+
+                        sqlString += "\n";
+                        sqlString += new String('-', hyphenCount);
+                        sqlString += "\n";
+
+                        // get data
+                        while (reader.Read())
+                        {
+                            // formatting if there is only 1 column
+                            if (columnCount <= 1)
+                            {
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    sqlString += reader.GetValue(i) + " | " + "\n";
+                                }
+                            }
+                            // formatting if there is more than 1 column
+                            else
+                            {
+
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    if (i == (columnCount - 1))
+                                    {
+                                        sqlString += reader.GetValue(i) + " | \n";
+                                    }
+                                    else
+                                    {
+                                        sqlString += reader.GetValue(i) + " | ";
+                                    }
+                                }
+                            }
+                        }
+
+                        // remove the last space pipe space.
+                        sqlString = sqlString.Remove(sqlString.Length - 2);
+                    }
+                }
+                reader.Close();
+            }
+            catch (SqlException ex)
+            {
+                sqlString += ex.Errors[0].Message.ToString();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            return sqlString;
         }
     }
 }

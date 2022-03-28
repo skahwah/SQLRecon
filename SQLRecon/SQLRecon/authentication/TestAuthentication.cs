@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Auth
@@ -12,7 +12,6 @@ namespace SQLRecon.Auth
             try
             {
                 con.Open();
-                //Console.WriteLine("[+] Success! " + user + " can log in to " + sqlServer);
                 return con;
             }
 
@@ -22,6 +21,6 @@ namespace SQLRecon.Auth
                 Environment.Exit(0);
                 return null;
             }
-        } // end TestAuthentication
+        } 
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 
 namespace SQLRecon.Auth
@@ -12,6 +12,6 @@ namespace SQLRecon.Auth
             String conString = "Server = " + sqlServer + "; Database = " + database + ";  Authentication=Active Directory Password; TrustServerCertificate=True; user id=" + user + "; password=" + pass + ";";
             TestAuthentication TestAuthentication = new TestAuthentication();
             return TestAuthentication.Send(conString, user, sqlServer);
-        } // end Send
+        } 
     }
 }
