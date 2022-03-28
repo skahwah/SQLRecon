@@ -94,7 +94,7 @@ See the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.  for detail
 
 ## Roadmap
 The below techniques are on the roadmap for future releases
-* Command Execution: Agent Jobs <a href="https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/3-command-execution.md#agent-jobs-cmdexec-powershell-activex-etc">Reference 1</a>
+* [Command Execution: Agent Jobs](https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/3-command-execution.md#agent-jobs-cmdexec-powershell-activex-etc)
 * Look into creating lclr
 
 ## History
