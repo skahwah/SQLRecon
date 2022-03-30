@@ -51,7 +51,7 @@ Standard modules are used to interact against a single MS SQL server.
 * <b>olecmd -o COMMAND</b> - Execute an arbitrary system command using OLE Automation Procedures
 * <b>enableclr</b> - Enable Custom CLR Assemblies
 * <b>disableclr</b> - Disable Custom CLR Assemblies
-* <b>clr</b> -o DLLPATH -f FUNCTION - Load and execute a .NET assembly within a custom stored procedure
+* <b>clr -o DLLPATH -f FUNCTION</b> - Load and execute a .NET assembly within a custom stored procedure
 * <b>agentstatus</b> - Check to see if SQL agent is running and obtain jobs
 * <b>agentcmd -o COMMAND</b> - Execute an arbitary system command
 
@@ -69,7 +69,7 @@ Impersonation modules are used to interact against a single MS SQL server, under
 * <b>iolecmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitrary system command  using OLE Automation Procedures
 * <b>ienableclr</b> - Enable Custom CLR Assemblies
 * <b>idisableclr</b> - Disable Custom CLR Assemblies
-* <b>iclr</b> -o DLLPATH -f FUNCTION - Load and execute a .NET assembly within a custom stored procedure
+* <b>iclr -o DLLPATH -f FUNCTION</b> - Load and execute a .NET assembly within a custom stored procedure
 * <b>iagentstatus -i IMPERSONATEUSER</b> - Check to see if SQL agent is running and obtain jobs
 * <b>iagentcmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitary system command
 
