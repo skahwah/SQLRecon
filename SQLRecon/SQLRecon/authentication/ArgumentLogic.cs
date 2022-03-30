@@ -148,6 +148,12 @@ namespace SQLRecon.Auth
                 module = argDict["m"].ToLower();
                 return;
             }
+            else if (argDict["m"].ToLower().Equals("agentcmd") && !argDict.ContainsKey("o"))
+            {
+                Console.WriteLine("\n[!] ERROR: Must supply a command (-o)");
+                module = argDict["m"].ToLower();
+                return;
+            }
             else if (argDict["m"].ToLower().Equals("search") && !argDict.ContainsKey("o"))
             {
                 Console.WriteLine("\n[!] ERROR: Must supply a keyword (-o)");
@@ -412,6 +418,20 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("lagentstatus"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else
             {
                 module = argDict["m"].ToLower();
@@ -508,6 +528,21 @@ namespace SQLRecon.Auth
                     impersonate = argDict["i"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("iagentcmd"))
+            {
+                if (!argDict.ContainsKey("i") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i) and command (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    impersonate = argDict["i"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("iclr"))
             {
                 if (!argDict.ContainsKey("i") || !argDict.ContainsKey("o") || !argDict.ContainsKey("f"))
@@ -567,6 +602,20 @@ namespace SQLRecon.Auth
                 }
             }
             else if (argDict["m"].ToLower().Equals("idisableclr"))
+            {
+                if (!argDict.ContainsKey("i"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    impersonate = argDict["i"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("iagentstatus"))
             {
                 if (!argDict.ContainsKey("i"))
                 {
@@ -701,6 +750,18 @@ namespace SQLRecon.Auth
                 CLR clr = new CLR();
                 clr.Standard(con, option, function);
             }
+            //agentstatus
+            else if (module.Equals("agentstatus"))
+            {
+                AgentJobs aj = new AgentJobs();
+                aj.AgentStatus(con, sqlServer);
+            }
+            else if (module.Equals("agentcmd"))
+            {
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + sqlServer + ":");
+                AgentJobs aj = new AgentJobs();
+                aj.AgentCommand(con, sqlServer, option);
+            }
             // links
             else if (module.Equals("links"))
             {
@@ -817,6 +878,13 @@ namespace SQLRecon.Auth
                 OLE Ole = new OLE();
                 Ole.LinkedCommand(con, option, linkedSqlServer);
             }
+            // lagentstatus
+            else if (module.Equals("lagentstatus"))
+            {
+                Console.Out.WriteLine("\n[+] Getting SQL agent status on " + linkedSqlServer + " via " + sqlServer + ":");
+                AgentJobs aj = new AgentJobs();
+                aj.LinkedAgentStatus(con, sqlServer, linkedSqlServer);
+            }
 
             // ###############################################
             // ########## Impersonation SQL Modules ##########
@@ -900,6 +968,19 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Performing CLR custom assembly attack as " + impersonate + " on " + sqlServer);
                 CLR clr = new CLR();
                 clr.Impersonate(con, option, function, impersonate);
+            }
+            // iagentstatus
+            else if (module.Equals("iagentstatus"))
+            {
+                AgentJobs aj = new AgentJobs();
+                aj.AgentStatus(con, sqlServer, impersonate);
+            }
+            // iagentcmd
+            else if (module.Equals("iagentcmd"))
+            {
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' as " + impersonate + " on " + sqlServer);
+                AgentJobs aj = new AgentJobs();
+                aj.ImpersonateAgentCommand(con, sqlServer, option, impersonate);
             }
             else
             {

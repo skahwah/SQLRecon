@@ -58,6 +58,8 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] enableclr | Enable Custom CLR Assemblies");
             Console.WriteLine("\t[+] disableclr | Disable Custom CLR Assemblies");
             Console.WriteLine("\t[+] clr -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
+            Console.WriteLine("\t[+] agentstatus | Check to see if SQL agent is running and obtain jobs");
+            Console.WriteLine("\t[+] agentcmd -o COMMAND | Execute an arbitary system command");
             Console.WriteLine("");
 
             Console.WriteLine("Linked SQL Server Modules (-m):");
@@ -80,6 +82,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] lolecmd -l LINKEDSERVERNAME -o COMMAND | Execute an arbitary system command on the linked SQL server");
             Console.WriteLine("\t[+] lenableclr -l LINKEDSERVERNAME | Enable Custom CLR Assemblies on the linked SQL server");
             Console.WriteLine("\t[+] ldisableclr -l LINKEDSERVERNAME | Disable Custom CLR Assemblies on the linked SQL server");
+            Console.WriteLine("\t[+] lagentstatus -l LINKEDSERVERNAME | Check to see if SQL agent is running and obtain jobs on the linked SQL server");
             Console.WriteLine("");
 
             Console.WriteLine("Impersonation Modules (-m):");
@@ -98,6 +101,8 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] ienablclr -i IMPERSONATEUSER | Enable CLR integration");
             Console.WriteLine("\t[+] idisablclr -i IMPERSONATEUSER | Disable CLR integration");
             Console.WriteLine("\t[+] iclr -i IMPERSONATEUSER -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
+            Console.WriteLine("\t[+] iagentstatus -i IMPERSONATEUSER | Check to see if SQL agent is running and obtain jobs");
+            Console.WriteLine("\t[+] iagentcmd -i IMPERSONATEUSER -o COMMAND | Execute an arbitary system command");
         }
     }
 }

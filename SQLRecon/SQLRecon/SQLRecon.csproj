@@ -102,6 +102,7 @@
     <Compile Include="authentication\Windows.cs" />
     <Compile Include="authentication\TestAuthentication.cs" />
     <Compile Include="authentication\Local.cs" />
+    <Compile Include="modules\AgentJobs.cs" />
     <Compile Include="modules\EnableDisable.cs" />
     <Compile Include="modules\Random.cs" />
     <Compile Include="modules\Impersonate.cs" />

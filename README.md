@@ -51,7 +51,9 @@ Standard modules are used to interact against a single MS SQL server.
 * <b>olecmd -o COMMAND</b> - Execute an arbitrary system command using OLE Automation Procedures
 * <b>enableclr</b> - Enable Custom CLR Assemblies
 * <b>disableclr</b> - Disable Custom CLR Assemblies
-* <b>clr</b> -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure
+* <b>clr</b> -o DLLPATH -f FUNCTION - Load and execute a .NET assembly within a custom stored procedure
+* <b>agentstatus</b> - Check to see if SQL agent is running and obtain jobs
+* <b>agentcmd -o COMMAND</b> - Execute an arbitary system command
 
 ## Impersonation Modules
 Impersonation modules are used to interact against a single MS SQL server, under the context of an impersonated SQL user.
@@ -67,7 +69,9 @@ Impersonation modules are used to interact against a single MS SQL server, under
 * <b>iolecmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitrary system command  using OLE Automation Procedures
 * <b>ienableclr</b> - Enable Custom CLR Assemblies
 * <b>idisableclr</b> - Disable Custom CLR Assemblies
-* <b>iclr</b> -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure
+* <b>iclr</b> -o DLLPATH -f FUNCTION - Load and execute a .NET assembly within a custom stored procedure
+* <b>iagentstatus -i IMPERSONATEUSER</b> - Check to see if SQL agent is running and obtain jobs
+* <b>iagentcmd -i IMPERSONATEUSER -o COMMAND</b> - Execute an arbitary system command
 
 ## Linked SQL Server Modules
 Linked SQL Server modules are effective when you are able to interact with a linked SQL server via an established connection.
@@ -88,16 +92,28 @@ Linked SQL Server modules are effective when you are able to interact with a lin
 * <b>lolecmd -l LINKEDSERVERNAME -o COMMAND</b> - Execute an arbitrary system command using OLE Automation Procedures on the linked SQL server
 * <b>lenableclr -l LINKEDSERVERNAME</b> - Enable Custom CLR Assemblies on the linked SQL server
 * <b>ldisableclr -l LINKEDSERVERNAME</b> - Disable Custom CLR Assemblies on the linked SQL server
+* <b>lagentstatus -l LINKEDSERVERNAME</b> - Check to see if SQL agent is running and obtain jobs on the linked SQL server
 
 ## Examples
 See the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.  for detailed examples.
 
 ## Roadmap
 The below techniques are on the roadmap for future releases
-* [Command Execution: Agent Jobs](https://github.com/SofianeHamlaoui/Pentest-Notes/blob/master/Security_cheatsheets/databases/sqlserver/3-command-execution.md#agent-jobs-cmdexec-powershell-activex-etc)
 * Look into creating lclr
+* Look into creating lagentcmd
 
 ## History
+<details>
+<summary>v2.1</summary>
+
+* Created AgentJobs.cs
+* Created agentstatus
+* Created iagentstatus
+* Created lagentstatus
+* Created agentcmd
+* Created iagentcmd
+</details>
+
 <details>
 <summary>v2.0</summary>
 
