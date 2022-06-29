@@ -44,9 +44,8 @@ namespace SQLRecon.Auth
                     port = argDict["r"];
                 }
 
-                sqlServer = sqlServer + "," + port;
                 WindowsAuth WindowsAuth = new WindowsAuth();
-                con = WindowsAuth.Send(sqlServer, database);
+                con = WindowsAuth.Send(sqlServer + "," + port, database);
                 EvaluateTheArguments(argDict);
             }
             else if (argDict["a"].ToLower().Equals("windows"))
@@ -75,9 +74,8 @@ namespace SQLRecon.Auth
                     port = argDict["r"];
                 }
 
-                sqlServer = sqlServer + "," + port;
                 LocalAuth LocalAuth = new LocalAuth();
-                con = LocalAuth.Send(sqlServer, database, user, pass);
+                con = LocalAuth.Send(sqlServer + "," + port, database, user, pass);
                 EvaluateTheArguments(argDict); 
             }
             else if (argDict["a"].ToLower().Equals("local"))
