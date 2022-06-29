@@ -106,6 +106,12 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.1.4</summary>
+
+* Fixed minor string formatting issue.
+</details>
+
+<details>
 <summary>v2.1.3</summary>
 
 * Added '-r' flag into Windows and Local authentication modes so that non-standard TCP ports can be supplied.
