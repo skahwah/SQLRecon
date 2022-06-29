@@ -106,6 +106,12 @@ namespace SQLRecon.Auth
         // EvaluateTheArguments
         public static void EvaluateTheArguments(Dictionary<string, string> argDict)
         {
+            // First check to see if the connection string is null
+            if (con == null)
+            {
+                return;
+            }
+
             // ##############################################
             // ###### Standard Single SQL Server Logic ######
             // ##############################################
