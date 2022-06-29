@@ -11,6 +11,7 @@ namespace SQLRecon.Auth
         private static SqlConnection con = null;
         private static String authType = "";
         private static String sqlServer = "";
+        private static String port = "1433";        
         private static String database = "";
         private static String domain = "";
         private static String user = "";
@@ -36,6 +37,14 @@ namespace SQLRecon.Auth
                 authType = argDict["a"].ToLower();
                 sqlServer = argDict["s"].ToLower();
                 database = argDict["d"].ToLower();
+
+                // optional argument for port, defaults to 1433
+                if (argDict.ContainsKey("r"))
+                {
+                    port = argDict["r"];
+                }
+
+                sqlServer = sqlServer + "," + port;
                 WindowsAuth WindowsAuth = new WindowsAuth();
                 con = WindowsAuth.Send(sqlServer, database);
                 EvaluateTheArguments(argDict);
@@ -59,6 +68,14 @@ namespace SQLRecon.Auth
                 database = argDict["d"].ToLower();
                 user = argDict["u"];
                 pass = argDict["p"];
+                
+                // optional argument for port, defaults to 1433
+                if (argDict.ContainsKey("r"))
+                {
+                    port = argDict["r"];
+                }
+
+                sqlServer = sqlServer + "," + port;
                 LocalAuth LocalAuth = new LocalAuth();
                 con = LocalAuth.Send(sqlServer, database, user, pass);
                 EvaluateTheArguments(argDict); 
