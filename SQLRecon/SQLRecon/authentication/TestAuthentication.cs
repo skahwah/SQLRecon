@@ -18,7 +18,6 @@ namespace SQLRecon.Auth
             catch
             {
                 Console.WriteLine("[!] Failed! " + user + " can not log in to " + sqlServer + "\n");
-                Environment.Exit(0);
                 return null;
             }
         } 
