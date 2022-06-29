@@ -13,7 +13,7 @@ namespace SQLRecon.Modules
         public void initialize()
         {
             Console.WriteLine("");
-            Console.WriteLine("SQLRecon v2.1.2");
+            Console.WriteLine("SQLRecon v2.1.3");
             Console.WriteLine("github.com/skahwah/SQLRecon");
             Console.WriteLine("");
 
@@ -22,6 +22,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("-a Windows - Use Windows authentication. This uses the current users token.");
             Console.WriteLine("\t[+] -s SERVERNAME | SQL server hostname");
             Console.WriteLine("\t[+] -d DATABASE | SQL server database name");
+            Console.WriteLine("\t[+] -r PORT | (OPTIONAL) Defaults to 1433");            
             Console.WriteLine("");
 
             Console.WriteLine("-a Local - Use local authentication. This requires the credentials for a local database user.");
@@ -29,6 +30,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] -d DATABASE | SQL server database name ");
             Console.WriteLine("\t[+] -u USERNAME | Username of local SQL user");
             Console.WriteLine("\t[+] -p PASSWORD | Password of local SQL user");
+            Console.WriteLine("\t[+] -r PORT | (OPTIONAL) Defaults to 1433");
             Console.WriteLine("");
 
             Console.WriteLine("-a Azure - Use Azure AD domain username and password authentication. This requires the credentials for a domain user.");
