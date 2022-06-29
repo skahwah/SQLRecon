@@ -33,6 +33,8 @@ If the authentication type is <b>Azure</b>, then you will need to supply the fol
 * <b>-p PASSWORD</b> - Password of domain user
 * <b>-m MODULE</b> - The module you want to use
 
+There are cases where a MS SQL Server might not be listening on a standard TCP port. A good example is MS SQL failover clustering. If the authentication type is <b>Windows</b> or <b>Local</b>, you can optionally set a non-standard connection port by supplying the <b>-r PORT</b> flag. By default, SQLRecon will connect to a databases via TCP Port 1433.
+
 ## Standard Modules
 Standard modules are used to interact against a single MS SQL server.
 
@@ -103,6 +105,12 @@ The below techniques are on the roadmap for future releases
 * Look into creating lagentcmd
 
 ## History
+<details>
+<summary>v2.1.3</summary>
+
+* Added '-r' flag into Windows and Local authentication modes so that non-standard TCP ports can be supplied.
+</details>
+
 <details>
 <summary>v2.1.2</summary>
 
