@@ -104,6 +104,12 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.1.2</summary>
+
+* Improved logic around null connection strings
+</details>
+
+<details>
 <summary>v2.1.1</summary>
 
 * Removed Environment.Exit from TestAuthentication.cs
