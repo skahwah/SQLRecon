@@ -6,6 +6,12 @@ A C# MS-SQL toolkit designed for offensive reconnaissance and post-exploitation.
 # Usage
 You can grab a copy of SQLRecon from the [releases](https://github.com/skahwah/SQLRecon/releases) page. Alternatively, feel free to compile the solution yourself This should be as straight forward as cloning the repo, double clicking the solution file and building.
 
+## Enumeration
+SQLRecon supports enumeration of Active Directory for MSSQL SPNs, akin to [PowerUpSQL's](https://github.com/NetSPI/PowerUpSQL) `Get-SQLInstanceDomain`.
+
+* <b>-e</b> - Enumeration Type
+  * <b>-d DOMAIN | (OPTIONAL) Domain FQDN</b>  - Use the current users token to enumerate AD for  MSSQL SPNs.
+
 ## Mandatory Arguments
 
 The mandatory arguments consist of an authentication type (either Windows, Local or Azure), connection parameters and a module.
@@ -105,6 +111,12 @@ The below techniques are on the roadmap for future releases
 * Look into creating lagentcmd
 
 ## History
+<details>
+<summary>v2.1.5</summary>
+
+* Added option to enumerate domain SPNS (-e).
+</details>
+
 <details>
 <summary>v2.1.4</summary>
 
