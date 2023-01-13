@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.DirectoryServices.ActiveDirectory;
 using SQLRecon.Modules;
 
 namespace SQLRecon.Auth
@@ -24,6 +25,21 @@ namespace SQLRecon.Auth
 
         public void AuthenticationType(Dictionary<string, string> argDict)
         {
+            // check for domain enumeration module first, as it does not require auth
+            if (argDict.ContainsKey("e"))
+            {
+                if (argDict["e"].Equals("domain", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (argDict.ContainsKey("d"))
+                        domain = argDict["d"];
+                    
+                    DomainSPNs.GetMSSQLSPNs(domain);
+                    
+                    // go no further
+                    return;
+                }
+            }
+            
             // if authentication type is not given, display help and return
             if (!argDict.ContainsKey("a"))
             {
