@@ -28,6 +28,7 @@
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <LangVersion>10</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -89,6 +90,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.DirectoryServices" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -104,6 +106,7 @@
     <Compile Include="authentication\Local.cs" />
     <Compile Include="modules\AgentJobs.cs" />
     <Compile Include="modules\EnableDisable.cs" />
+    <Compile Include="modules\GetDomainSPNs.cs" />
     <Compile Include="modules\Random.cs" />
     <Compile Include="modules\Impersonate.cs" />
     <Compile Include="modules\CaptureHash.cs" />
@@ -115,6 +118,8 @@
     <Compile Include="modules\ExecuteQuery.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="utilities\DomainSearcher.cs" />
+    <Compile Include="utilities\Ldap.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

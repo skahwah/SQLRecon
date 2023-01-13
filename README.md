@@ -106,6 +106,12 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.1.5</summary>
+
+* Added option to enumerate domain SPNS (-e).
+</details>
+
+<details>
 <summary>v2.1.4</summary>
 
 * Fixed minor string formatting issue.
