@@ -2,15 +2,12 @@
 
 namespace SQLRecon.Modules
 {
-    public class Help
+    public static class Help
     {
-        public Help()
-        {
-            initialize();
-        }
-
-        // this returns the help menu to console
-        public void initialize()
+        /// <summary>
+        /// Prints the help menu to console
+        /// </summary>
+        public static void Show()
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon v2.1.5");
@@ -47,6 +44,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("");
 
             Console.WriteLine("Standard Modules (-m):");
+            Console.WriteLine("\t[+] info | Show information about the SQL Server");
             Console.WriteLine("\t[+] query -o QUERY | Execute an arbitrary SQL query");
             Console.WriteLine("\t[+] whoami | See what user you are logged in as, mapped as and what roles exist");
             Console.WriteLine("\t[+] databases | Show all databases present on the SQL server");

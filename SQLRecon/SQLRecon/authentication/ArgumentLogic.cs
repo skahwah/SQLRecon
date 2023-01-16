@@ -13,7 +13,7 @@ namespace SQLRecon.Auth
         private static String authType = "";
         private static String sqlServer = "";
         private static String port = "1433";        
-        private static String database = "";
+        private static String database = "master";
         private static String domain = "";
         private static String user = "";
         private static String pass = "";
@@ -48,17 +48,18 @@ namespace SQLRecon.Auth
             }
 
             // if the authentication type is Windows, make sure that sql server, database and module has been set
-            if (argDict["a"].ToLower().Equals("windows") && argDict.ContainsKey("s") && argDict.ContainsKey("d") && argDict.ContainsKey("m"))
+            if (argDict["a"].ToLower().Equals("windows") && argDict.ContainsKey("s") && argDict.ContainsKey("m"))
             {
                 authType = argDict["a"].ToLower();
                 sqlServer = argDict["s"].ToLower();
-                database = argDict["d"].ToLower();
+                
+                // optional arg for database
+                if (argDict.ContainsKey("d"))
+                    database = argDict["d"].ToLower();
 
                 // optional argument for port, defaults to 1433
                 if (argDict.ContainsKey("r"))
-                {
                     port = argDict["r"];
-                }
 
                 WindowsAuth WindowsAuth = new WindowsAuth();
                 con = WindowsAuth.Send(sqlServer + "," + port, database);
@@ -679,16 +680,24 @@ namespace SQLRecon.Auth
 
             SQLQuery sqlQuery = new SQLQuery();
 
+            // info
+            if (module.Equals("info"))
+            {
+                var info = new SQLServerInfo(con);
+                info.GetAllSQLServerInfo();
+                info.PrintInfo();
+            }
             // whoami
-            if (module.Equals("whoami"))
+            else if (module.Equals("whoami"))
             {
                 Console.Out.WriteLine("\n[+] Logged in as: " + sqlQuery.ExecuteQuery(con, "SELECT SYSTEM_USER;"));
                 Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteQuery(con, "SELECT USER_NAME(); "));
 
                 Console.Out.WriteLine("\n[+] Roles: ");
-                Roles Roles = new Roles();
-                Roles.Server(con, "public");
-                Roles.Server(con, "sysadmin");
+                
+                var roles = new Roles();
+                roles.CheckServerRole(con, "public", true);
+                roles.CheckServerRole(con, "sysadmin", true);
             }
             // databases
             else if (module.Equals("databases"))
@@ -842,9 +851,10 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "SELECT USER_NAME(); "));
 
                 Console.Out.WriteLine("\n[+] Roles: ");
-                Roles Roles = new Roles();
-                Roles.Linked(con, "public", linkedSqlServer);
-                Roles.Linked(con, "sysadmin", linkedSqlServer);
+                
+                var roles = new Roles();
+                roles.CheckLinkedServerRole(con, "public", linkedSqlServer, true);
+                roles.CheckLinkedServerRole(con, "sysadmin", linkedSqlServer, true);
             }
             // lenablerpc
             else if (module.Equals("lenablerpc"))
@@ -934,9 +944,9 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "';SELECT USER_NAME();"));
 
                 Console.Out.WriteLine("\n[+] Roles: ");
-                Roles Roles = new Roles();
-                Roles.Impersonate(con, "public", impersonate);
-                Roles.Impersonate(con, "sysadmin", impersonate);
+                var roles = new Roles();
+                roles.CheckImpersonatedRole(con, "public", impersonate, true);
+                roles.CheckImpersonatedRole(con, "sysadmin", impersonate, true);
             }
             // iquery
             else if (module.Equals("iquery"))
