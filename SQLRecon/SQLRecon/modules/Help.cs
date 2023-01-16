@@ -23,7 +23,7 @@ namespace SQLRecon.Modules
 
             Console.WriteLine("-a Windows - Use Windows authentication. This uses the current users token.");
             Console.WriteLine("\t[+] -s SERVERNAME | SQL server hostname");
-            Console.WriteLine("\t[+] -d DATABASE | SQL server database name");
+            Console.WriteLine("\t[+] -d DATABASE | (OPTIONAL) SQL server database name. Defaults to 'master'");
             Console.WriteLine("\t[+] -r PORT | (OPTIONAL) Defaults to 1433");            
             Console.WriteLine("");
 
