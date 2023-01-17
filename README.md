@@ -47,6 +47,7 @@ Standard modules are used to interact against a single MS SQL server.
 * <b>info</b> - Print information about the SQL Service
 * <b>query -o QUERY</b> - Execute an arbitrary SQL query
 * <b>whoami</b> - See what user you are logged in as, mapped as and what roles exist
+* <b>users</b> - See what user accounts and groups can authenticate against the database
 * <b>databases</b> - Show all databases present on the SQL server
 * <b>tables -o DATABASE</b> - Show all tables in the database you specify
 * <b>search -o KEYWORD</b> - Search column names within tables of the database you are connected to
@@ -68,6 +69,7 @@ Standard modules are used to interact against a single MS SQL server.
 Impersonation modules are used to interact against a single MS SQL server, under the context of an impersonated SQL user.
 * <b>impersonate</b> - Enumerate any user accounts that can be impersonated
 * <b>iwhoami -i IMPERSONATEUSER</b> - See what user you are logged in as, mapped as and what roles exist
+* <b>iusers -i IMPERSONATEUSER</b> - See what user accounts and groups can authenticate against the database
 * <b>iquery -i IMPERSONATEUSER -o QUERY</b> - Execute an arbitrary SQL query as an impersonated user
 <br>↓ Command Execution (requires sysadmin role or similar)
 * <b>ienablexp -i IMPERSONATEUSER</b> - Enable xp_cmdshell
@@ -87,6 +89,7 @@ Linked SQL Server modules are effective when you are able to interact with a lin
 * <b>links</b> - Enumerate any linked SQL servers
 * <b>lquery -l LINKEDSERVERNAME -o QUERY</b> - Execute an arbitrary SQL query on the linked SQL server
 * <b>lwhoami -l LINKEDSERVERNAME</b> - See what user you are logged in as on the linked SQL server
+* <b>lusers -l LINKEDSERVERNAME</b> - See what user accounts and groups can authenticate against the database on the linked SQL server
 * <b>ldatabases -l LINKEDSERVERNAME</b> - Show all databases present on the linked SQL server
 * <b>ltables -l LINKEDSERVERNAME -o DATABASE</b> - Show all tables in the supplied database on the linked SQL server
 * <b>lsmb -l LINKEDSERVERNAME -o SHARE</b> - Capture NetNTLMv2 hash from linked SQL server
@@ -101,17 +104,28 @@ Linked SQL Server modules are effective when you are able to interact with a lin
 * <b>lolecmd -l LINKEDSERVERNAME -o COMMAND</b> - Execute an arbitrary system command using OLE Automation Procedures on the linked SQL server
 * <b>lenableclr -l LINKEDSERVERNAME</b> - Enable Custom CLR Assemblies on the linked SQL server
 * <b>ldisableclr -l LINKEDSERVERNAME</b> - Disable Custom CLR Assemblies on the linked SQL server
+* <b>lclr -o DLLPATH -f FUNCTION</b> - Load and execute a .NET assembly within a custom stored procedure on the linked SQL server
 * <b>lagentstatus -l LINKEDSERVERNAME</b> - Check to see if SQL agent is running and obtain jobs on the linked SQL server
+* <b>lagentcmd -l LINKEDSERVERNAME -o COMMAND</b> - Execute an arbitrary system command on the linked SQL server
 
 ## Examples
 See the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.  for detailed examples.
 
 ## Roadmap
 The below techniques are on the roadmap for future releases
-* Look into creating lclr
-* Look into creating lagentcmd
+* Expand enumeration modules
 
 ## History
+<details>
+<summary>v2.2</summary>
+
+* Expanded roles which are queried in the roles, iroles and lroles modules
+* Created users, iusers and lusers modules
+* Fixed hash not being dropped from sp_drop_trusted_assembly in clr and iclr modules
+* Created lagentcmd module
+* Created lclr module
+</details>
+
 <details>
 <summary>v2.1.6</summary>
 

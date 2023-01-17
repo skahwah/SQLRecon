@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.DirectoryServices.ActiveDirectory;
+using System.Linq;
 using SQLRecon.Modules;
 
 namespace SQLRecon.Auth
@@ -374,6 +375,20 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("lusers"))
+            {
+                if (!argDict.ContainsKey("l"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("lroles"))
             {
                 if (!argDict.ContainsKey("l"))
@@ -472,6 +487,22 @@ namespace SQLRecon.Auth
                     linkedSqlServer = argDict["l"];
                 }
             }
+            else if (argDict["m"].ToLower().Equals("lclr"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o") || !argDict.ContainsKey("f"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l), path to DLL (-o) and function name (-f)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
+                    function = argDict["f"];
+                    linkedSqlServer = argDict["l"];
+                }
+            }
             else if (argDict["m"].ToLower().Equals("lagentstatus"))
             {
                 if (!argDict.ContainsKey("l"))
@@ -483,6 +514,21 @@ namespace SQLRecon.Auth
                 else
                 {
                     module = argDict["m"].ToLower();
+                    linkedSqlServer = argDict["l"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("lagentcmd"))
+            {
+                if (!argDict.ContainsKey("l") || !argDict.ContainsKey("o"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a linked SQL server (-l) and command (-o)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    option = argDict["o"];
                     linkedSqlServer = argDict["l"];
                 }
             }
@@ -526,6 +572,20 @@ namespace SQLRecon.Auth
                 }
             }
             else if (argDict["m"].ToLower().Equals("iwhoami"))
+            {
+                if (!argDict.ContainsKey("i"))
+                {
+                    Console.WriteLine("\n[!] ERROR: Must supply a user to impersonate (-i)");
+                    module = argDict["m"].ToLower();
+                    return;
+                }
+                else
+                {
+                    module = argDict["m"].ToLower();
+                    impersonate = argDict["i"];
+                }
+            }
+            else if (argDict["m"].ToLower().Equals("iusers"))
             {
                 if (!argDict.ContainsKey("i"))
                 {
@@ -710,10 +770,32 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteQuery(con, "SELECT USER_NAME(); "));
 
                 Console.Out.WriteLine("\n[+] Roles: ");
-                
+
                 var roles = new Roles();
-                roles.CheckServerRole(con, "public", true);
-                roles.CheckServerRole(con, "sysadmin", true);
+
+                // this sql command can be run by low privilege users and extracts all of the observable roles which are present in the current database
+                // "select name from sys.database_principals where type = 'R'" also works
+                string getRoles = sqlQuery.ExecuteCustomQuery(con, "select [name] from sysusers where issqlrole = 1;").TrimStart('\n').Replace(" |", "");
+
+                // get rid of the first two elements, which will be "name" and "-------"
+                string[] rolesArr = getRoles.Split('\n').Skip(2).ToArray();
+
+                // these are the default MS SQL database roles
+                string[] defaultRoles = { "sysadmin", "setupadmin", "serveradmin", "securityadmin", "processadmin", "diskadmin", "dbcreator", "bulkadmin" };
+
+                string[] combinedRoles = rolesArr.Concat(defaultRoles).ToArray();
+
+                // test to see if the current principal is a member of any roles
+                foreach (var item in combinedRoles)
+                {
+                    roles.CheckServerRole(con, item.Trim(), true);
+                }
+
+            }
+            // users
+            else if (module.Equals("users"))
+            {
+                Console.Out.WriteLine("\n[+] Users in the " + database + " database on " + sqlServer + ":" + sqlQuery.ExecuteCustomQuery(con, "select name as username, create_date, modify_date, type_desc as type, authentication_type_desc as authentication_type from sys.database_principals where type not in ('A', 'R', 'X') and sid is not null order by username;"));
             }
             // databases
             else if (module.Equals("databases"))
@@ -812,7 +894,7 @@ namespace SQLRecon.Auth
                 CLR clr = new CLR();
                 clr.Standard(con, option, function);
             }
-            //agentstatus
+            // agentstatus
             else if (module.Equals("agentstatus"))
             {
                 AgentJobs aj = new AgentJobs();
@@ -867,10 +949,30 @@ namespace SQLRecon.Auth
                 Console.Out.WriteLine("\n[+] Mapped to the user: " + sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "SELECT USER_NAME(); "));
 
                 Console.Out.WriteLine("\n[+] Roles: ");
-                
                 var roles = new Roles();
-                roles.CheckLinkedServerRole(con, "public", linkedSqlServer, true);
-                roles.CheckLinkedServerRole(con, "sysadmin", linkedSqlServer, true);
+
+                // this sql command can be run by low privilege users and extracts all of the observable roles which are present in the current database
+                // "select name from sys.database_principals where type = 'R'" also works
+                string getRoles = sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select [name] from sysusers where issqlrole = 1;").TrimStart('\n').Replace(" |", "");
+
+                // get rid of the first two elements, which will be "name" and "-------"
+                string[] rolesArr = getRoles.Split('\n').Skip(2).ToArray();
+
+                // these are the default MS SQL database roles
+                string[] defaultRoles = { "sysadmin", "setupadmin", "serveradmin", "securityadmin", "processadmin", "diskadmin", "dbcreator", "bulkadmin" };
+
+                string[] combinedRoles = rolesArr.Concat(defaultRoles).ToArray();
+
+                // test to see if the current principal is a member of any roles
+                foreach (var item in combinedRoles)
+                {
+                    roles.CheckLinkedServerRole(con, item.Trim(), linkedSqlServer, true);
+                }
+            }
+            // lusers
+            else if (module.Equals("lusers"))
+            {
+                Console.Out.WriteLine("\n[+] Users in the " + database + " database on " + linkedSqlServer + " via " + sqlServer + ": " + sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select name as username, create_date, modify_date, type_desc as type, authentication_type_desc as authentication_type from sys.database_principals where type not in (''A'', ''R'', ''X'') and sid is not null order by username;"));
             }
             // lenablerpc
             else if (module.Equals("lenablerpc"))
@@ -928,6 +1030,13 @@ namespace SQLRecon.Auth
                 Configure config = new Configure();
                 config.LinkedEnableDisable(con, "clr enabled", "0", linkedSqlServer);
             }
+            // lclr
+            else if (module.Equals("lclr"))
+            {
+                Console.Out.WriteLine("\n[+] Performing CLR custom assembly attack on " + linkedSqlServer + " via " + sqlServer + ":");
+                CLR clr = new CLR();
+                clr.Linked(con, option, function, linkedSqlServer);
+            }
             // lxpcmd
             else if (module.Equals("lxpcmd"))
             {
@@ -948,6 +1057,14 @@ namespace SQLRecon.Auth
                 AgentJobs aj = new AgentJobs();
                 aj.LinkedAgentStatus(con, sqlServer, linkedSqlServer);
             }
+            // lagentcmd
+            else if (module.Equals("lagentcmd"))
+            {
+                Console.Out.WriteLine("\n[+] Executing '" + option + "' on " + linkedSqlServer + " via " + sqlServer);
+                AgentJobs aj = new AgentJobs();
+                aj.LinkedAgentCommand(con, linkedSqlServer, option);
+            }
+
 
             // ###############################################
             // ########## Impersonation SQL Modules ##########
@@ -961,8 +1078,29 @@ namespace SQLRecon.Auth
 
                 Console.Out.WriteLine("\n[+] Roles: ");
                 var roles = new Roles();
-                roles.CheckImpersonatedRole(con, "public", impersonate, true);
-                roles.CheckImpersonatedRole(con, "sysadmin", impersonate, true);
+
+                // this sql command extracts all of the observable roles which are present in the current database
+                // "select name from sys.database_principals where type = 'R'" also works
+                string getRoles = sqlQuery.ExecuteCustomQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "';select [name] from sysusers where issqlrole = 1;").TrimStart('\n').Replace(" |", "");
+
+                // get rid of the first two elements, which will be "name" and "-------"
+                string[] rolesArr = getRoles.Split('\n').Skip(2).ToArray();
+
+                // these are the default MS SQL database roles
+                string[] defaultRoles = { "sysadmin", "setupadmin", "serveradmin", "securityadmin", "processadmin", "diskadmin", "dbcreator", "bulkadmin" };
+
+                string[] combinedRoles = rolesArr.Concat(defaultRoles).ToArray();
+
+                // test to see if the current principal is a member of any roles
+                foreach (var item in combinedRoles)
+                {
+                    roles.CheckImpersonatedRole(con, item.Trim(), impersonate, true);
+                }
+            }
+            // iusers
+            else if (module.Equals("iusers"))
+            {
+                Console.Out.WriteLine("\n[+] Getting users in the " + database + " database on " + sqlServer + " as " + impersonate + ":" + sqlQuery.ExecuteCustomQuery(con, "EXECUTE AS LOGIN = '" + impersonate + "'; select name as username, create_date, modify_date, type_desc as type, authentication_type_desc as authentication_type from sys.database_principals where type not in ('A', 'R', 'X') and sid is not null order by username;"));
             }
             // iquery
             else if (module.Equals("iquery"))

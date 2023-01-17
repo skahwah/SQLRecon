@@ -10,7 +10,7 @@ namespace SQLRecon.Modules
         public static void Show()
         {
             Console.WriteLine("");
-            Console.WriteLine("SQLRecon v2.1.6");
+            Console.WriteLine("SQLRecon v2.2.0");
             Console.WriteLine("github.com/skahwah/SQLRecon");
             Console.WriteLine("");
             
@@ -48,6 +48,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] info | Show information about the SQL Server");
             Console.WriteLine("\t[+] query -o QUERY | Execute an arbitrary SQL query");
             Console.WriteLine("\t[+] whoami | See what user you are logged in as, mapped as and what roles exist");
+            Console.WriteLine("\t[+] users | See what user accounts and groups can authenticate against the database");
             Console.WriteLine("\t[+] databases | Show all databases present on the SQL server");
             Console.WriteLine("\t[+] tables -o DATABASE | Show all tables in the database you specify");
             Console.WriteLine("\t[+] search -o KEYWORD | Search column names within tables of the database you are connected to");
@@ -72,6 +73,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] links | Enumerate any linked SQL servers");
             Console.WriteLine("\t[+] lquery -l LINKEDSERVERNAME -o QUERY | Execute an arbitrary SQL query on the linked SQL server");
             Console.WriteLine("\t[+] lwhoami -l LINKEDSERVERNAME | See what user you are logged in as, mapped as and what roles exist on the linked SQL server");
+            Console.WriteLine("\t[+] lusers -l LINKEDSERVERNAME | See what user accounts and groups can authenticate against the database on the linked SQL server");
             Console.WriteLine("\t[+] ldatabases -l LINKEDSERVERNAME | Show all databases present on the linked SQL server");
             Console.WriteLine("\t[+] ltables -l LINKEDSERVERNAME -o DATABASE | Show all tables in the supplied database on the linked SQL server");
             Console.WriteLine("\t[+] lsmb -l LINKEDSERVERNAME -o SHARE | Capture NetNTLMv2 hash from linked SQL server");
@@ -88,12 +90,15 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] lolecmd -l LINKEDSERVERNAME -o COMMAND | Execute an arbitrary system command on the linked SQL server");
             Console.WriteLine("\t[+] lenableclr -l LINKEDSERVERNAME | Enable Custom CLR Assemblies on the linked SQL server");
             Console.WriteLine("\t[+] ldisableclr -l LINKEDSERVERNAME | Disable Custom CLR Assemblies on the linked SQL server");
+            Console.WriteLine("\t[+] lclr -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure on the linked SQL server");
             Console.WriteLine("\t[+] lagentstatus -l LINKEDSERVERNAME | Check to see if SQL agent is running and obtain jobs on the linked SQL server");
+            Console.WriteLine("\t[+] lagentcmd -l LINKEDSERVERNAME -o COMMAND | Execute an arbitrary system command on the linked SQL server");
             Console.WriteLine("");
 
             Console.WriteLine("Impersonation Modules (-m):");
             Console.WriteLine("\t[+] impersonate | Enumerate any user accounts that can be impersonated");
             Console.WriteLine("\t[+] iwhoami -i IMPERSONATEUSER | See what user you are logged in as, mapped as and what roles exist");
+            Console.WriteLine("\t[+] iusers -i IMPERSONATEUSER | See what user accounts and groups can authenticate against the database");
             Console.WriteLine("\t[+] iquery -i IMPERSONATEUSER -o QUERY | Execute an arbitrary SQL query as an impersonated user");
             Console.WriteLine("\t------------------------------------------------------------");
             Console.WriteLine("\t| -> Command Execution (requires sysadmin role or similar) |");
