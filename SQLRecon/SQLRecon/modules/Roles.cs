@@ -68,7 +68,7 @@ namespace SQLRecon.Modules
             }
             else
             {
-                Console.WriteLine("User is NOT a member of " + role + " role\n");
+                Console.WriteLine("User is NOT a member of " + role + " role");
             }
         }
     }

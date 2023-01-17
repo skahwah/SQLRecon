@@ -257,5 +257,62 @@ namespace SQLRecon.Modules
                 Console.WriteLine("\n[!] ERROR: Unable to create new job");
             }
         }
+
+        public void LinkedAgentCommand(SqlConnection con, string linkedSqlServer, String cmd)
+        {
+            string sqlOutput = "";
+
+            // first check to see if agent is running
+            sqlOutput = LinkedCheckAgent(con, linkedSqlServer);
+
+            if (!sqlOutput.Contains("1"))
+            {
+                Console.WriteLine("\n[!] ERROR: The SQL Agent is not running on the linked server");
+                return;
+            }
+
+            RandomString rs = new RandomString();
+            string jobName = rs.Generate(8); // generate a new random output name
+            string stepName = rs.Generate(8); // generate a new random program name
+
+            Console.WriteLine("\n[+] Setting job_name to: " + jobName);
+            Console.WriteLine("\n[+] Setting step_name to: " + stepName);
+
+            sqlOutput = sqlQuery.ExecuteLinkedQueryWithSideEffects(con, linkedSqlServer, "use msdb;" +
+                "EXEC dbo.sp_add_job @job_name = ''" + jobName + "'';" +
+                "EXEC dbo.sp_add_jobstep @job_name = ''" + jobName + "'', " +
+                "@step_name = ''" + stepName + "'', " +
+                "@subsystem = ''PowerShell'', " +
+                "@command = ''" + cmd + "'', " +
+                "@retry_attempts = 1, " +
+                "@retry_interval = 5;" +
+                "EXEC dbo.sp_add_jobserver @job_name = ''" + jobName + "'';");
+            
+            sqlOutput = LinkedJobs(con, linkedSqlServer);
+
+            
+            if (sqlOutput.ToLower().Contains(jobName.ToLower()))
+            {
+                Console.WriteLine("\n[+] Executing Job and waiting for 5 seconds ...");
+                sqlOutput = sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "use msdb;" +
+                    "EXEC dbo.sp_start_job ''" + jobName + "''; " +
+                    "WAITFOR DELAY ''00:00:05'';");
+
+                Console.WriteLine("\nSUCCESS: Deleting job");
+
+                sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "use msdb;" +
+                    "EXEC dbo.sp_delete_job  @job_name = ''" + jobName + "'';");
+            }
+            else if (sqlOutput.Contains("permission"))
+            {
+                Console.WriteLine("\n[!] ERROR: The current user does not have permissions to create new jobs");
+            }
+            else
+            {
+                Console.WriteLine("\n[!] ERROR: Unable to create new job");
+
+            }
+        }
+
     }
 }

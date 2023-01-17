@@ -218,5 +218,32 @@ namespace SQLRecon.Modules
             }
             return sqlString;
         }
+
+        //Some stored procedures won't work via openquery so we need to use the "EXECUTE (QUERY) AT HOSTNAME" syntax
+        //IMPORTANT: Any queries passed into this function need to have their single quotes escaped
+        public string ExecuteLinkedQueryWithSideEffects(SqlConnection con, String linkedSqlServer, String query)
+        {
+            string sqlString = "\n";
+
+            try
+            {
+                SqlCommand command = new SqlCommand("EXECUTE ('" + query + "') AT " + linkedSqlServer + ";", con);
+                SqlDataReader reader = command.ExecuteReader();
+                while (reader.Read() == true)
+                {
+                    sqlString += reader[0];
+                }
+                reader.Close();
+            }
+            catch (SqlException ex)
+            {
+                sqlString += "[!] ERROR: " + ex.Errors[0].Message.ToString();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            return sqlString;
+        }
     }
 }
