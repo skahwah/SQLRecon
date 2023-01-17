@@ -44,6 +44,7 @@ There are cases where a MS SQL Server might not be listening on a standard TCP p
 ## Standard Modules
 Standard modules are used to interact against a single MS SQL server.
 
+* <b>info</b> - Print information about the SQL Service
 * <b>query -o QUERY</b> - Execute an arbitrary SQL query
 * <b>whoami</b> - See what user you are logged in as, mapped as and what roles exist
 * <b>databases</b> - Show all databases present on the SQL server
@@ -112,9 +113,15 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.1.6</summary>
+
+* Added 'info' module, '-m info'.
+</details>
+
+<details>
 <summary>v2.1.5</summary>
 
-* Added option to enumerate domain SPNS (-e).
+* Added option to enumerate domain SPNs (-e).
 </details>
 
 <details>
