@@ -17,7 +17,7 @@ namespace SQLRecon
                 // print help if no arguments are supplieds
                 if ((args.Length > 0 && argDict.Count == 0) || argDict.ContainsKey("h"))
                 {
-                    Help Help = new Help(); 
+                    Help.Show(); 
                     return;
                 }
 

@@ -113,6 +113,7 @@
     <Compile Include="modules\Help.cs" />
     <Compile Include="modules\CLRAssemblies.cs" />
     <Compile Include="modules\OLECmdExec.cs" />
+    <Compile Include="modules\SQLServerInfo.cs" />
     <Compile Include="modules\XPCmdShell.cs" />
     <Compile Include="modules\Roles.cs" />
     <Compile Include="modules\ExecuteQuery.cs" />
