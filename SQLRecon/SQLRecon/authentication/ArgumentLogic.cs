@@ -31,8 +31,10 @@ namespace SQLRecon.Auth
                 if (argDict["e"].Equals("domain", StringComparison.OrdinalIgnoreCase))
                 {
                     if (argDict.ContainsKey("d"))
+                    {
                         domain = argDict["d"];
-                    
+                    }
+
                     DomainSPNs.GetMSSQLSPNs(domain);
                     
                     // go no further
@@ -55,11 +57,15 @@ namespace SQLRecon.Auth
                 
                 // optional arg for database
                 if (argDict.ContainsKey("d"))
+                { 
                     database = argDict["d"].ToLower();
+                }
 
                 // optional argument for port, defaults to 1433
                 if (argDict.ContainsKey("r"))
+                { 
                     port = argDict["r"];
+                }
 
                 WindowsAuth WindowsAuth = new WindowsAuth();
                 con = WindowsAuth.Send(sqlServer + "," + port, database);
@@ -67,24 +73,28 @@ namespace SQLRecon.Auth
             }
             else if (argDict["a"].ToLower().Equals("windows"))
             {
-                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s), database (-d) and module (-m)");
+                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s) and module (-m).");
                 return;
             }
 
             /* if authentication type is local, make sure that:
                 - the SQL server
-                - database
                 - username 
                 - and password has been given, otherwise display help and return
             */
-            if (argDict["a"].ToLower().Equals("local") && argDict.ContainsKey("s") && argDict.ContainsKey("d") && argDict.ContainsKey("u") && argDict.ContainsKey("p") && argDict.ContainsKey("m"))
+            if (argDict["a"].ToLower().Equals("local") && argDict.ContainsKey("s") && argDict.ContainsKey("u") && argDict.ContainsKey("p") && argDict.ContainsKey("m"))
             {
                 authType = argDict["a"].ToLower();
                 sqlServer = argDict["s"].ToLower();
-                database = argDict["d"].ToLower();
                 user = argDict["u"];
                 pass = argDict["p"];
-                
+
+                // optional arg for database
+                if (argDict.ContainsKey("d"))
+                { 
+                    database = argDict["d"].ToLower();
+                }
+
                 // optional argument for port, defaults to 1433
                 if (argDict.ContainsKey("r"))
                 {
@@ -97,7 +107,7 @@ namespace SQLRecon.Auth
             }
             else if (argDict["a"].ToLower().Equals("local"))
             {
-                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s), database (-d), username (-u), password (-p) and module (-m)");
+                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s), username (-u), password (-p) and module (-m)");
                 return;
             }
 
@@ -108,7 +118,7 @@ namespace SQLRecon.Auth
                 - domain
                 - and password has been given, otherwise display help and return
             */
-            if (argDict["a"].ToLower().Equals("azure") && argDict.ContainsKey("s") && argDict.ContainsKey("d") && argDict.ContainsKey("r") && argDict.ContainsKey("u") && argDict.ContainsKey("p") && argDict.ContainsKey("m"))
+            if (argDict["a"].ToLower().Equals("azure") && argDict.ContainsKey("s") && argDict.ContainsKey("r") && argDict.ContainsKey("u") && argDict.ContainsKey("p") && argDict.ContainsKey("m"))
             {
                 if (!argDict["r"].Contains("."))
                 {
@@ -119,10 +129,16 @@ namespace SQLRecon.Auth
                 {
                     authType = argDict["a"].ToLower();
                     sqlServer = argDict["s"].ToLower();
-                    database = argDict["d"].ToLower();
                     domain = argDict["r"];
                     user = argDict["u"];
                     pass = argDict["p"];
+
+                    // optional arg for database
+                    if (argDict.ContainsKey("d"))
+                    {
+                        database = argDict["d"].ToLower();
+                    }
+
                     AzureAuth AzureAuth = new AzureAuth();
                     con = AzureAuth.Send(sqlServer, database, domain, user, pass);
                     EvaluateTheArguments(argDict);
@@ -130,7 +146,7 @@ namespace SQLRecon.Auth
             }
             else if (argDict["a"].ToLower().Equals("azure"))
             {
-                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s), database (-d), domain (-r), username (-u), password (-p) and module (-m)");
+                Console.WriteLine("\n[!] ERROR: Must supply a SQL server (-s), domain (-r), username (-u), password (-p) and module (-m)");
                 return;
             }
         }

@@ -10,7 +10,7 @@ You can grab a copy of SQLRecon from the [releases](https://github.com/skahwah/S
 SQLRecon supports enumeration of Active Directory for MSSQL SPNs, akin to [PowerUpSQL's](https://github.com/NetSPI/PowerUpSQL) `Get-SQLInstanceDomain`.
 
 * <b>-e</b> - Enumeration Type
-  * <b>-d DOMAIN | (OPTIONAL) Domain FQDN</b>  - Use the current users token to enumerate AD for  MSSQL SPNs.
+  * <b>domain -d DOMAIN | (OPTIONAL) Domain FQDN</b> - Use the current users token to enumerate AD for MSSQL SPNs.
 
 ## Mandatory Arguments
 
@@ -23,21 +23,21 @@ The mandatory arguments consist of an authentication type (either Windows, Local
 
 If the authentication type is <b>Windows</b>, then you will need to supply the following parameters.
   * <b>-s SERVERNAME</b> - SQL server hostname
-  * <b>-d DATABASE</b> - SQL server database name
+  * <b>-d DATABASE</b> - (OPTIONAL) SQL server database name, defaults to 'master'
   * <b>-m MODULE</b> - The module you want to use
 
 If the authentication type is <b>Local</b>, then you will need to supply the following parameters.
-  * <b>-d DATABASE</b> - SQL server database name
+  * <b>-d DATABASE</b> - (OPTIONAL) SQL server database name, defaults to 'master'
   * <b>-u USERNAME</b> - Username of local SQL user
   * <b>-p PASSWORD</b> - Password of local SQL user
   * <b>-m MODULE</b> - The module you want to use
 
 If the authentication type is <b>Azure</b>, then you will need to supply the following parameters.
-* <b>-d DATABASE</b> - SQL server database name
-* <b>-r DOMAIN.COM</b> - FQDN of Domain
-* <b>-u USERNAME</b> - Username of domain user
-* <b>-p PASSWORD</b> - Password of domain user
-* <b>-m MODULE</b> - The module you want to use
+  * <b>-d DATABASE</b> - (OPTIONAL) SQL server database name, defaults to 'master'
+  * <b>-r DOMAIN.COM</b> - FQDN of Domain
+  * <b>-u USERNAME</b> - Username of domain user
+  * <b>-p PASSWORD</b> - Password of domain user
+  * <b>-m MODULE</b> - The module you want to use
 
 There are cases where a MS SQL Server might not be listening on a standard TCP port. A good example is MS SQL failover clustering. If the authentication type is <b>Windows</b> or <b>Local</b>, you can optionally set a non-standard connection port by supplying the <b>-r PORT</b> flag. By default, SQLRecon will connect to a databases via TCP Port 1433.
 
@@ -67,7 +67,7 @@ Standard modules are used to interact against a single MS SQL server.
 ## Impersonation Modules
 Impersonation modules are used to interact against a single MS SQL server, under the context of an impersonated SQL user.
 * <b>impersonate</b> - Enumerate any user accounts that can be impersonated
-* <b>iwhoami</b> - See what user you are logged in as, mapped as and what roles exist
+* <b>iwhoami -i IMPERSONATEUSER</b> - See what user you are logged in as, mapped as and what roles exist
 * <b>iquery -i IMPERSONATEUSER -o QUERY</b> - Execute an arbitrary SQL query as an impersonated user
 <br>↓ Command Execution (requires sysadmin role or similar)
 * <b>ienablexp -i IMPERSONATEUSER</b> - Enable xp_cmdshell
@@ -86,7 +86,7 @@ Impersonation modules are used to interact against a single MS SQL server, under
 Linked SQL Server modules are effective when you are able to interact with a linked SQL server via an established connection.
 * <b>links</b> - Enumerate any linked SQL servers
 * <b>lquery -l LINKEDSERVERNAME -o QUERY</b> - Execute an arbitrary SQL query on the linked SQL server
-* <b>lwhoami</b> - See what user you are logged in as on the linked SQL server
+* <b>lwhoami -l LINKEDSERVERNAME</b> - See what user you are logged in as on the linked SQL server
 * <b>ldatabases -l LINKEDSERVERNAME</b> - Show all databases present on the linked SQL server
 * <b>ltables -l LINKEDSERVERNAME -o DATABASE</b> - Show all tables in the supplied database on the linked SQL server
 * <b>lsmb -l LINKEDSERVERNAME -o SHARE</b> - Capture NetNTLMv2 hash from linked SQL server
@@ -116,12 +116,14 @@ The below techniques are on the roadmap for future releases
 <summary>v2.1.6</summary>
 
 * Added 'info' module, '-m info'.
+* Corrections in Help.cs.
+* Resolved issues with mandatory arguments with Local and Azure authentication.
 </details>
 
 <details>
 <summary>v2.1.5</summary>
 
-* Added option to enumerate domain SPNs (-e).
+* Added option to enumerate domain SPNs (-e domain).
 </details>
 
 <details>
