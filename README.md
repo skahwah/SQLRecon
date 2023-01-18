@@ -117,6 +117,12 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.2.1</summary>
+
+* Added the capability to download .NET assemblys via HTTP/S
+</details>
+
+<details>
 <summary>v2.2</summary>
 
 * Expanded roles which are queried in the roles, iroles and lroles modules

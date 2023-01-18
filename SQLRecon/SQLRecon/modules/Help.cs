@@ -10,14 +10,13 @@ namespace SQLRecon.Modules
         public static void Show()
         {
             Console.WriteLine("");
-            Console.WriteLine("SQLRecon v2.2.0");
+            Console.WriteLine("SQLRecon v2.2.1");
             Console.WriteLine("github.com/skahwah/SQLRecon");
             Console.WriteLine("");
             
             Console.WriteLine("Enumeration Type (-e):");
             Console.WriteLine("-e domain - Use the current users token to enumerate AD for MSSQL SPNs.");
             Console.WriteLine("\t[+] -d domain.local | (OPTIONAL) Domain FQDN");
-
             Console.WriteLine("");
 
             Console.WriteLine("Authentication Type (-a):");
@@ -64,7 +63,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] olecmd -o COMMAND | Execute an arbitrary system command");
             Console.WriteLine("\t[+] enableclr | Enable Custom CLR Assemblies");
             Console.WriteLine("\t[+] disableclr | Disable Custom CLR Assemblies");
-            Console.WriteLine("\t[+] clr -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
+            Console.WriteLine("\t[+] clr -o DLL -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
             Console.WriteLine("\t[+] agentstatus | Check to see if SQL agent is running and obtain jobs");
             Console.WriteLine("\t[+] agentcmd -o COMMAND | Execute an arbitrary system command");
             Console.WriteLine("");
@@ -90,7 +89,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] lolecmd -l LINKEDSERVERNAME -o COMMAND | Execute an arbitrary system command on the linked SQL server");
             Console.WriteLine("\t[+] lenableclr -l LINKEDSERVERNAME | Enable Custom CLR Assemblies on the linked SQL server");
             Console.WriteLine("\t[+] ldisableclr -l LINKEDSERVERNAME | Disable Custom CLR Assemblies on the linked SQL server");
-            Console.WriteLine("\t[+] lclr -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure on the linked SQL server");
+            Console.WriteLine("\t[+] lclr -o DLL -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure on the linked SQL server");
             Console.WriteLine("\t[+] lagentstatus -l LINKEDSERVERNAME | Check to see if SQL agent is running and obtain jobs on the linked SQL server");
             Console.WriteLine("\t[+] lagentcmd -l LINKEDSERVERNAME -o COMMAND | Execute an arbitrary system command on the linked SQL server");
             Console.WriteLine("");
@@ -111,7 +110,7 @@ namespace SQLRecon.Modules
             Console.WriteLine("\t[+] iolecmd -i IMPERSONATEUSER -o COMMAND | Execute an arbitrary system command");
             Console.WriteLine("\t[+] ienableclr -i IMPERSONATEUSER | Enable CLR integration");
             Console.WriteLine("\t[+] idisableclr -i IMPERSONATEUSER | Disable CLR integration");
-            Console.WriteLine("\t[+] iclr -i IMPERSONATEUSER -o DLLPATH -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
+            Console.WriteLine("\t[+] iclr -i IMPERSONATEUSER -o DLL -f FUNCTION | Load and execute a .NET assembly within a custom stored procedure");
             Console.WriteLine("\t[+] iagentstatus -i IMPERSONATEUSER | Check to see if SQL agent is running and obtain jobs");
             Console.WriteLine("\t[+] iagentcmd -i IMPERSONATEUSER -o COMMAND | Execute an arbitrary system command");
         }
