@@ -119,7 +119,7 @@ The below techniques are on the roadmap for future releases
 <details>
 <summary>v2.2.1</summary>
 
-* Added the capability to download .NET assemblys via HTTP/S
+* Added the capability to download .NET assemblies via HTTP/S
 </details>
 
 <details>
