@@ -183,7 +183,7 @@ namespace SQLRecon.Modules
         {
             string sqlOutput = "";
 
-            sqlOutput = sqlQuery.ExecuteCustomQuery(con, " sp_helpserver @server=" + sqlServer);
+            sqlOutput = sqlQuery.ExecuteCustomQuery(con, "EXEC sp_helpserver @server='" + sqlServer + "';");
 
             if (sqlOutput.Contains("rpc"))
             {
