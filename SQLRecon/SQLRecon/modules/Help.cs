@@ -10,7 +10,7 @@ namespace SQLRecon.Modules
         public static void Show()
         {
             Console.WriteLine("");
-            Console.WriteLine("SQLRecon v2.2.1");
+            Console.WriteLine("SQLRecon v2.2.2");
             Console.WriteLine("github.com/skahwah/SQLRecon");
             Console.WriteLine("");
             
