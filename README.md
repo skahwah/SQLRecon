@@ -117,6 +117,12 @@ The below techniques are on the roadmap for future releases
 
 ## History
 <details>
+<summary>v2.2.2</summary>
+
+* Fixed checking RPC status on linked SQL servers.
+</details>
+
+<details>
 <summary>v2.2.1</summary>
 
 * Added the capability to download .NET assemblies via HTTP/S
