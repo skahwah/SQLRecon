@@ -62,8 +62,8 @@ namespace SQLRecon.Modules
                 return;
             }
 
-            sqlQuery.ExecuteQuery(con, "EXEC('sp_configure ''show advanced options'', 1; reconfigure;') AT " + linkedSqlServer);
-            sqlQuery.ExecuteQuery(con, "EXEC('sp_configure ''" + module + "'', "+ val +"; reconfigure;') AT " + linkedSqlServer);
+            sqlQuery.ExecuteQuery(con, "EXEC('sp_configure ''show advanced options'', 1; reconfigure;') AT [" + linkedSqlServer + "]");
+            sqlQuery.ExecuteQuery(con, "EXEC('sp_configure ''" + module + "'', "+ val +"; reconfigure;') AT [" + linkedSqlServer + "]");
             
             sqlOutput = sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "select value from sys.configurations where name = ''"+ module +"''");
 
