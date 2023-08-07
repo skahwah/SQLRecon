@@ -238,7 +238,7 @@ The table below contains additional information for each SCCM module:
 | ------ | ----------- |
 | sUsers | Lists all users in the `RBAC_Admins` table. These are all users configured for some level of access to SCCM. |
 | sSites | Lists all other sites with data stored in the SCCM databases' `DPInfo` table. This can provide additional attack avenues as different sites can be configured in different (insecure) ways. |
-| sLogons | Queries the `Computer_System_DATA` table to retrieve all associated SCCM clients along with the user that last logged into them. <b>NOTE:</b>b> This only updates once a week by default and will not be 100% up to date. Use `/option:` as an optional (not required) argument to filter SCCM clients. |
+| sLogons | Queries the `Computer_System_DATA` table to retrieve all associated SCCM clients along with the user that last logged into them. <b>NOTE:</b> This only updates once a week by default and will not be 100% up to date. Use `/option:` as an optional (not required) argument to filter SCCM clients. |
 | sTaskList | Provides a list of all task sequences stored in the SCCM database, but does not access the actual task data contents. |
 | sTaskData | Recovers all task sequences stored in the SCCM database and decrypts them to plaintext. Task sequences can contain credentials for joining systems to domains, mapping shares, running commands, etc. |
 | sCredentials | Lists credentials vaulted by SCCM for use in various functions. These credentials can not be remotely decrypted as the key is stored on the SCCM server. However, this module provides intel on if it makes sense to attempt to obtain the key. |
