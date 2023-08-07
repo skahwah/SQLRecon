@@ -21,6 +21,8 @@
 
 **Version 3.3 will be released on Aug 10, 2023, stay tuned ...**
 
+In the meantime, please check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website.
+
 <p align="center">
   <img src="./images/sqlrecon-40.png">
 </p>
