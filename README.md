@@ -19,6 +19,8 @@
 
 # SQLRecon
 
+Version 3.3 will be released on Aug 10, 2023 ...
+
 <p align="center">
   <img src="./images/sqlrecon-40.png">
 </p>
