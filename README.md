@@ -19,10 +19,6 @@
 
 # SQLRecon
 
-**Version 3.3 will be released on Aug 10, 2023, stay tuned ...**
-
-In the meantime, please check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website.
-
 <p align="center">
   <img src="./images/sqlrecon-40.png">
 </p>
@@ -30,6 +26,8 @@ In the meantime, please check out my blog post on the <a href="https://securityi
 SQLRecon is a Microsoft SQL Server toolkit that is designed for offensive reconnaissance and post-exploitation. For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>. 
 
 <a href="https://github.com/skahwah/SQLRecon/wiki/8.-Prevention,-Detection-and-Mitigation-Guidance">Prevention, detection and mitigation guidance</a> has also been provided for all you defenders out there.
+
+Please check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website.
 
 # Overview
 
