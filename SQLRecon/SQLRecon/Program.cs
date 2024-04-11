@@ -31,7 +31,10 @@ namespace SQLRecon
                     {
                         // Set the authentication type, if conditions have passed, evaluate the arguments.
                         if (SetAuthenticationType.EvaluateAuthenticationType(parsedArgs))
+                        {
                             ArgumentLogic.EvaluateTheArguments(parsedArgs);
+                        }
+                            
                     }
                     else if (parsedArgs.ContainsKey("enum"))
                     {

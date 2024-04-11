@@ -21,16 +21,17 @@ namespace SQLRecon.Commands
         private static readonly SqlQuery _sqlQuery = new();
         private static readonly XpCmdShell _xpCmdShell = new();
 
-        private static SqlConnection _connection = _gV.Connect;
-        private static string _arg0 = _gV.Arg0;
-        private static string _arg1 = _gV.Arg1;
-        private static string _arg2 = _gV.Arg2;
-        private static string _database = _gV.Database;
-        private static string _impersonate = _gV.Impersonate;
-        private static string _linkedSqlServer = _gV.LinkedSqlServer;
-        private static string _module = _gV.Module;
+        private static readonly SqlConnection _connection = _gV.Connect;
+        private static readonly string _arg0 = _gV.Arg0;
+        private static readonly string _arg1 = _gV.Arg1;
+        private static readonly string _arg2 = _gV.Arg2;
+        private static readonly string _database = _gV.Database;
+        private static readonly string _impersonate = _gV.Impersonate;
+        private static readonly string _linkedSqlServer = _gV.LinkedSqlServer;
+        private static readonly string _module = _gV.Module;
+        private static readonly string _sqlServer = _gV.SqlServer;
+
         private static string _query;
-        private static string _sqlServer = _gV.SqlServer;
 
         /// <summary>
         /// The ExecuteModule method will match the user supplied module in the
@@ -46,6 +47,20 @@ namespace SQLRecon.Commands
                 return;
             }
 
+            _query = "SELECT SYSTEM_USER;";
+            _print.Status(string.Format("Logged in as server user '{0}'",
+                _sqlQuery.ExecuteQuery(_connection, _query)), true);
+
+            _query = "SELECT USER_NAME();";
+            _print.Status(string.Format("Mapped to the username '{0}'",
+                _sqlQuery.ExecuteQuery(_connection, _query)), true);
+
+            if (!string.IsNullOrEmpty(_impersonate))
+            {
+                _sqlQuery.Impersonate(_connection, _impersonate);
+            }
+
+
             // Reference: https://stackoverflow.com/questions/29034093/create-instance-of-class-and-call-method-from-string/29034215
             // Set the type name to this local class.
             Type type = Type.GetType(MethodBase.GetCurrentMethod().DeclaringType.ToString());
@@ -54,7 +69,7 @@ namespace SQLRecon.Commands
             {
                 // Match the method name to the module that has been supplied as an argument.
                 MethodInfo method = type.GetMethod(_module);
-
+               
                 if (method != null)
                 {
                     // Call the method.
@@ -269,23 +284,108 @@ namespace SQLRecon.Commands
 
         /// <summary>
         /// The impersonate method is used against single instances of SQL server to
-        /// identify if any SQL accounts can be impersonated.
+        /// identify if any SQL accounts can be impersonated. This method is particularly
+        /// crucial for understanding potential privilege escalation paths.
         /// This method needs to be public as reflection is used to match the
         /// module name that is supplied via command line, to the actual method name.
-        /// <summary>
+        /// </summary>
         public static void impersonate()
         {
-            _print.Status(string.Format("Enumerating accounts that can be impersonated on {0}", _sqlServer), true);
+            _print.Status($"Enumerating accounts that can be impersonated on {_sqlServer}", true);
 
-            _query = _sqlQuery.ExecuteCustomQuery(_connection,
-                "SELECT distinct b.name FROM sys.server_permissions a " +
-                "INNER JOIN sys.server_principals b ON a.grantor_principal_id " +
-                "= b.principal_id WHERE a.permission_name = 'IMPERSONATE';");
+            // Check if the current user is a sysadmin
+            string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER('sysadmin');";
+            string isSysAdmin = _sqlQuery.ExecuteCustomQuery(_connection, sysAdminCheckQuery).Trim();
 
-            Console.WriteLine(_query.Contains("name")
-                ? _query
-                : _print.Status("No logins can be impersonated."));
+            if (isSysAdmin.Contains("1"))
+            {
+                // If the user is a sysadmin, they can impersonate any login
+                _print.Status("Current user is a sysadmin and can impersonate any account.", true);
+                var allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
+                var allLogins = _sqlQuery.ExecuteCustomQuery(_connection, allLoginsQuery);
+                Console.WriteLine(!string.IsNullOrWhiteSpace(allLogins) ? allLogins : "No logins found to impersonate.");
+            }
+            else
+            {
+                // If not a sysadmin, enumerate all users and check which ones can be impersonated
+                var allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
+                var allLogins = _sqlQuery.ExecuteCustomQuery(_connection, allLoginsQuery);
+
+                if (!string.IsNullOrWhiteSpace(allLogins))
+                {
+                    foreach (var login in allLogins.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).Skip(1)) // Skip header
+                    {
+                        string user = login.Trim().Split('|')[0].Trim(); // Extract the username
+                        if (_sqlQuery.CanImpersonate(_connection, user))
+                        {
+                            Console.WriteLine($"{user} can be impersonated.");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No logins found to check for impersonation.");
+                }
+            }
         }
+
+        /// <summary>
+        /// The limpersonate method is used against linked instances of SQL server to
+        /// identify if any SQL accounts on the linked server can be impersonated. This method is particularly
+        /// crucial for understanding potential privilege escalation paths on remote servers.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void limpersonate()
+        {
+
+            // Display the current server user
+            string currentUserQuery = "SELECT SYSTEM_USER;";
+            string currentUserResult = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, currentUserQuery);
+
+            string currentUser = currentUserResult.Split('\n').Skip(2).FirstOrDefault()?.Trim().TrimEnd(new char[] { ' ', '|' });
+
+            _print.Status($"Connected to {_linkedSqlServer} from {_sqlServer} with server user '{currentUser}'", true);
+
+            // Query to check if the current user on the linked server is a sysadmin
+            string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER(''sysadmin'');";
+            string isSysAdmin = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, sysAdminCheckQuery);
+
+            if (isSysAdmin.Contains("1"))
+            {
+                // If the user is a sysadmin on the linked server, they can impersonate any login
+                _print.Status("The user can impersonate any account on the linked server.", true);
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN (''SQL_LOGIN'', ''WINDOWS_LOGIN'') AND name NOT LIKE ''##%'';";
+                string allLogins = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, allLoginsQuery);
+                Console.WriteLine(!string.IsNullOrWhiteSpace(allLogins) ? allLogins : "No logins found to impersonate on the linked server.");
+            }
+            else
+            {
+                // If not a sysadmin on the linked server, enumerate all users and check which ones can be impersonated
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN (''SQL_LOGIN'', ''WINDOWS_LOGIN'') AND name NOT LIKE ''##%'';";
+                string allLogins = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, allLoginsQuery);
+
+                if (!string.IsNullOrWhiteSpace(allLogins))
+                {
+                    foreach (var login in allLogins.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).Skip(1)) // Skip header
+                    {
+                        string user = login.Trim().Split('|')[0].Trim(); // Extract the username
+                        if (_sqlQuery.CanImpersonate(_connection, user))
+                        {
+                            Console.WriteLine($"{user} can potentially be impersonated on the linked server {_linkedSqlServer}.");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No logins found to check for impersonation on the linked server.");
+                }
+            }
+        }
+
+
+
+
         /// <summary>
         /// The info method is used against single instances of SQL server to
         /// gather information about the remote SQL server instance.
@@ -303,15 +403,37 @@ namespace SQLRecon.Commands
         /// <summary>
         /// The links method is used against single instances of SQL server to
         /// determine if the remote SQL server has a link configured to other SQL servers.
-        /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
-        /// <summary>
+        /// It provides detailed information about each linked server, including the local login mapping,
+        /// whether self-mapping is used, the remote login, and other linked server properties.
+        /// </summary>
         public static void links()
         {
-            _print.Status(string.Format("Additional SQL links on {0}", _sqlServer), true);
-            _query = "SELECT name, product, provider, data_source FROM sys.servers WHERE is_linked = 1;";
-            _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
+            _print.Status($"Additional SQL links and login mappings on {_sqlServer}", true);
+
+            // Query to fetch detailed linked server information along with login mappings
+            _query = @"
+        SELECT 
+            srv.name AS [Linked Server], 
+            srv.product, 
+            srv.provider, 
+            srv.data_source,
+            COALESCE(prin.name, 'N/A') AS [Local Login], 
+            ll.uses_self_credential AS [Is Self Mapping], 
+            ll.remote_name AS [Remote Login]
+        FROM 
+            sys.servers srv
+            LEFT JOIN sys.linked_logins ll ON srv.server_id = ll.server_id
+            LEFT JOIN sys.server_principals prin ON ll.local_principal_id = prin.principal_id
+        WHERE 
+            srv.is_linked = 1;";
+
+            // Execute the query and check if the output is empty
+            string result = _sqlQuery.ExecuteCustomQuery(_connection, _query);
+            _print.IsOutputEmpty(result, true);
         }
+
+
+
 
         /// <summary>
         /// The olecmd method is used against single instances of SQL server to
@@ -422,14 +544,6 @@ namespace SQLRecon.Commands
         public static void whoami()
         {
             _print.Status(string.Format("Determining user permissions on {0}", _sqlServer), true);
-
-            _query = "SELECT SYSTEM_USER;";
-            _print.Status(string.Format("Logged in as {0}",
-                _sqlQuery.ExecuteQuery(_connection, _query)), true);
-
-            _query = "SELECT USER_NAME();";
-            _print.Status(string.Format("Mapped to the user {0}",
-                _sqlQuery.ExecuteQuery(_connection, _query)), true);
 
             _print.Status("Roles:", true);
 
@@ -673,18 +787,34 @@ namespace SQLRecon.Commands
         /// <summary>
         /// The llinks method is used against linked instances of SQL server to
         /// determine if the remote linked SQL server has a link configured to other SQL servers.
-        /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
-        /// <summary>
+        /// It provides detailed information about each linked server, including the local login mapping,
+        /// whether self-mapping is used, the remote login, and other linked server properties.
+        /// </summary>
         public static void llinks()
         {
-            _print.Status(string.Format("Additional SQL links on {0} via {1}",
-                _linkedSqlServer, _sqlServer), true);
-            _query = "SELECT name, product, provider, data_source FROM " +
-                "sys.servers WHERE is_linked = 1;";
-            _print.IsOutputEmpty(_sqlQuery.ExecuteLinkedCustomQuery(
-                _connection, _linkedSqlServer, _query), true);
+            _print.Status($"Additional SQL links and login mappings on {_linkedSqlServer} via {_sqlServer}", true);
+
+            // Query to fetch detailed linked server information along with login mappings
+            _query = @"
+                SELECT 
+                    srv.name AS [Linked Server], 
+                    srv.product, 
+                    srv.provider, 
+                    srv.data_source,
+                    COALESCE(prin.name, ''N/A'') AS [Local Login], 
+                    ll.uses_self_credential AS [Is Self Mapping], 
+                    ll.remote_name AS [Remote Login]
+                FROM 
+                    sys.servers srv
+                    LEFT JOIN sys.linked_logins ll ON srv.server_id = ll.server_id
+                    LEFT JOIN sys.server_principals prin ON ll.local_principal_id = prin.principal_id
+                WHERE 
+                    srv.is_linked = 1";
+
+            string result = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, _query);
+            _print.IsOutputEmpty(result, true);
         }
+
 
         /// <summary>
         /// The lolecmd method is used against linked SQL servers to

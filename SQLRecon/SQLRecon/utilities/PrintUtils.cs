@@ -85,12 +85,12 @@ namespace SQLRecon.Utilities
         {
             if (print == true)
             {
-                Console.WriteLine(string.Format("[X] ERROR: {0}", sqlOutput));
+                Console.WriteLine(string.Format("[X] {0}", sqlOutput));
                 return "";
             }
             else
             {
-                return string.Format("[X] ERROR: {0}", sqlOutput);
+                return string.Format("[X] {0}", sqlOutput);
             }
         }
 
@@ -127,12 +127,12 @@ namespace SQLRecon.Utilities
         {
             if (print == true)
             {
-                Console.WriteLine(string.Format("[+] SUCCESS: {0}", sqlOutput));
+                Console.WriteLine(string.Format("[+] {0}", sqlOutput));
                 return "";
             }
             else
             {
-                return string.Format("[+] SUCCESS: {0}", sqlOutput);
+                return string.Format("[+] {0}", sqlOutput);
             }
         }
 

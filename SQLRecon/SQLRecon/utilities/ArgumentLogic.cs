@@ -26,7 +26,7 @@ namespace SQLRecon.Utilities
         /// <returns></returns>
         internal static Dictionary<string, string> ParseArguments(IEnumerable<string> args)
         {
-            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string, string> result = new(StringComparer.InvariantCultureIgnoreCase);
 
             try
             {
@@ -86,19 +86,34 @@ namespace SQLRecon.Utilities
         /// <param name="argDict">The argDict dictionary contains the modules to be used by SQLRecon.</param>
         public static void EvaluateTheArguments(Dictionary<string, string> argDict)
         {
-            if (_standardArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int standardArgumentCount))
+            // Retrieve and normalize the module name to avoid repeated dictionary access and case conversion.
+            string moduleName = argDict.ContainsKey("module") ? argDict["module"].ToLower() : null;
+
+            // Check if the moduleName is null or empty to handle potential missing module entries gracefully.
+            if (string.IsNullOrEmpty(moduleName))
+            {
+                _print.Error("Module name is missing or invalid.", true);
+                return;
+            }
+
+            if (argDict.ContainsKey("iuser"))
+            {
+                _gV.Impersonate = argDict["iuser"];
+            }
+
+            if (_standardArgumentsAndOptionCount.TryGetValue(moduleName, out int standardArgumentCount))
             {
                 _checkStandard(argDict, standardArgumentCount);
             }
-            else if (_impersonationArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int impersonationArgumentCount))
+            else if (_impersonationArgumentsAndOptionCount.TryGetValue(moduleName, out int impersonationArgumentCount))
             {
                 _checkImpersonation(argDict, impersonationArgumentCount);
             }
-            else if (_linkedArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int linkedArgumentCount))
+            else if (_linkedArgumentsAndOptionCount.TryGetValue(moduleName, out int linkedArgumentCount))
             {
                 _checkLinked(argDict, linkedArgumentCount);
             }
-            else if (_sccmArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int sccmArgumentCount))
+            else if (_sccmArgumentsAndOptionCount.TryGetValue(moduleName, out int sccmArgumentCount))
             {
                 _checkSccm(argDict, sccmArgumentCount);
             }
@@ -108,7 +123,11 @@ namespace SQLRecon.Utilities
                 // Go no further.
                 return;
             }
+
+            // Execute the module once variables treated
+            ModuleHandler.ExecuteModule();
         }
+
 
         /// <summary>
         /// The _convertArgumentFromShortToLong method will convert any arguments supplied on the 
@@ -147,7 +166,7 @@ namespace SQLRecon.Utilities
                 if (argumentDictionary.ContainsKey("module"))
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/db:' flag.
@@ -163,7 +182,7 @@ namespace SQLRecon.Utilities
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["db"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/keyword:' flag.
@@ -179,7 +198,7 @@ namespace SQLRecon.Utilities
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["keyword"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/rhost:' flag.
@@ -197,7 +216,7 @@ namespace SQLRecon.Utilities
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["rhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/c:, /command:' flag.
@@ -216,7 +235,7 @@ namespace SQLRecon.Utilities
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["command"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/db:' and '/table:' flags.
@@ -234,7 +253,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.Arg2 = argumentDictionary["table"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the clr module.
@@ -251,7 +270,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["dll"];
                     _gV.Arg2 = argumentDictionary["function"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the adsi module.
@@ -268,7 +287,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["rhost"];
                     _gV.Arg2 = argumentDictionary["lport"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             else
@@ -303,10 +322,7 @@ namespace SQLRecon.Utilities
                 {
 
                     _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Impersonate = argumentDictionary["iuser"];
                     _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
-
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/db:' flag.
@@ -323,8 +339,6 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/keyword:' flag.
@@ -341,7 +355,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["keyword"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
 
                 }
             }
@@ -360,7 +374,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["rhost"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
 
                 }
             }
@@ -381,7 +395,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["command"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
 
                 }
             }
@@ -401,7 +415,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.Arg2 = argumentDictionary["table"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
 
                 }
             }
@@ -420,7 +434,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["dll"];
                     _gV.Arg2 = argumentDictionary["function"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the iadsi module.
@@ -438,7 +452,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["rhost"];
                     _gV.Arg2 = argumentDictionary["lport"];
                     _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             else
@@ -474,7 +488,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
                     _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/rhost:' flag.
@@ -491,7 +505,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["rhost"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/db:' flag.
@@ -508,7 +522,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for modules which use the '/c:, /command:' flag.
@@ -528,7 +542,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["command"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for  modules which use the '/db:' and '/table:' flags.
@@ -547,7 +561,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.Arg2 = argumentDictionary["table"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the lsearch module.
@@ -565,7 +579,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["db"];
                     _gV.Arg2 = argumentDictionary["keyword"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the lclr module.
@@ -583,7 +597,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["dll"];
                     _gV.Arg2 = argumentDictionary["function"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the ladsi module.
@@ -601,7 +615,7 @@ namespace SQLRecon.Utilities
                     _gV.Arg1 = argumentDictionary["rhost"];
                     _gV.Arg2 = argumentDictionary["lport"];
                     _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             else
@@ -629,7 +643,7 @@ namespace SQLRecon.Utilities
                 {
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the saddadmin module.
@@ -657,7 +671,7 @@ namespace SQLRecon.Utilities
                         _gV.Arg2 = argumentDictionary["sid"];
                     }
 
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             // This is a custom error message and flag assignment for the sremoveadmin module.
@@ -674,7 +688,7 @@ namespace SQLRecon.Utilities
                     _gV.Module = argumentDictionary["module"].ToLower();
                     _gV.Arg1 = argumentDictionary["user"];
                     _gV.Arg2 = argumentDictionary["remove"];
-                    ModuleHandler.ExecuteModule();
+                    
                 }
             }
             else

@@ -85,7 +85,7 @@ namespace SQLRecon.Utilities
             Console.WriteLine("----------------------------------------------------------------------------------------------");
             Console.WriteLine("\tStandard Modules (/m:, /module:) are executed against a single instance of SQL server:");
             Console.WriteLine("----------------------------------------------------------------------------------------------");
-            
+
             table = new TablePrinter("", "", "");
             table.AddRow("\tInfo", "|", "Show information about the SQL server");
             table.AddRow("\tQuery /c:QUERY", "|", "Execute a SQL query");
@@ -120,7 +120,7 @@ namespace SQLRecon.Utilities
             Console.WriteLine("------------------------------------------------------------------------------------------");
             Console.WriteLine("\tLinked Modules (/m:, /module:) are executed on a linked SQL server (/l:, /lhost:):");
             Console.WriteLine("------------------------------------------------------------------------------------------");
-            
+
             table = new TablePrinter("", "", "");
             table.AddRow("\tlQuery /l:LINKED_HOST /c:QUERY", "|", "Execute a SQL query");
             table.AddRow("\tlWhoami /l:LINKED_HOST", "|", "Display what user you are logged in as, mapped as and what roles exist");
@@ -131,6 +131,7 @@ namespace SQLRecon.Utilities
             table.AddRow("\tlRows /l:LINKED_HOST /db:DATABASE /table:TABLE", "|", "Display the number of rows in the supplied database and table");
             table.AddRow("\tlSearch /l:LINKED_HOST /db:DATABASE /keyword:KEYWORD", "|", "Search column names in the supplied table of the database you are connected to");
             table.AddRow("\tlSmb /l:LINKED_HOST /rhost:UNC_PATH", "|", "Capture NetNTLMv2 hash");
+            table.AddRow("\tlImpersonate", "|", "Enumerate user accounts that can be impersonated on a linked SQL server");
             table.AddRow("\tlLinks /l:LINKED_HOST", "|", "Enumerate linked SQL servers on a linked SQL server");
             table.AddRow("\tlCheckRpc /l:LINKED_HOST", "|", "Obtain a list of linked servers on the linked server and their RPC status");
             table.AddRow("\t[*] lEnableXp /l:LINKED_HOST", "|", "Enable xp_cmdshell");
@@ -151,7 +152,7 @@ namespace SQLRecon.Utilities
             Console.WriteLine("--------------------------------------------------------------------------------------------------------------------------------------");
             Console.WriteLine("\tImpersonation Modules (/m:, /module:) are executed against a single instance of SQL server using impersonation (/i:, /iuser:):");
             Console.WriteLine("--------------------------------------------------------------------------------------------------------------------------------------");
-            
+
             table = new TablePrinter("", "", "");
             table.AddRow("\tiQuery /i:IMPERSONATE_USER /c:QUERY", "|", "Execute a SQL query");
             table.AddRow("\tiWhoami /i:IMPERSONATE_USER", "|", "Display what user you are logged in as, mapped as and what roles exist");

@@ -127,6 +127,7 @@ namespace SQLRecon.Commands
                     {"lenableclr", 1},
                     {"lenableole", 1},
                     {"lenablexp", 1},
+                    {"limpersonate", 1},
                     {"llinks", 1},
                     {"lusers", 1},
                     {"lwhoami", 1},
