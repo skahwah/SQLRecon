@@ -14,6 +14,8 @@ namespace SQLRecon.Commands
         private static string _domain;
         private static string _impersonate;
         private static string _linkedSqlServer;
+        private static string[] _tunnelSqlServer;
+        private static string _tunnelPath;
         private static string _module;
         private static string _password;
         private static string _port = "1433";
@@ -33,6 +35,7 @@ namespace SQLRecon.Commands
                     {"h", "host"},
                     {"i", "iuser"},
                     {"l", "lhost"},
+                    {"t", "tunnel"},
                     {"m", "module"},
                     {"o", "option"},
                     {"p", "password"},
@@ -142,6 +145,20 @@ namespace SQLRecon.Commands
                     {"lcolumns", 3},
                     {"lsearch", 3},
                     {"lrows", 3}
+                };
+            }
+        }
+
+        public Dictionary<string, int> TunnelArgumentsAndOptionCount
+        {
+            get
+            {
+                return new Dictionary<string, int>()
+                {
+                    {"timpersonate", 1},
+                    {"tusers", 1},
+                    {"twhoami", 1},
+                    {"tquery", 2},
                 };
             }
         }
@@ -264,6 +281,19 @@ namespace SQLRecon.Commands
                 _linkedSqlServer = value;
             }
         }
+
+        public string[] TunnelSqlServer
+        {
+            get
+            {
+                return _tunnelSqlServer;
+            }
+            set
+            {
+                _tunnelSqlServer = value;
+            }
+        }
+
         public string Module
         {
             get
@@ -318,6 +348,18 @@ namespace SQLRecon.Commands
             set
             {
                 _username = value;
+            }
+        }
+
+        public string TunnelPath
+        {
+            get
+            {
+                return _tunnelPath;
+            }
+            set
+            {
+                _tunnelPath = value;
             }
         }
     }

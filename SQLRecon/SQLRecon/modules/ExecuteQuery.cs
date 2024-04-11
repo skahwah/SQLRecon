@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.SqlClient;
+using System.Text;
 using SQLRecon.Utilities;
 
 namespace SQLRecon.Modules
@@ -510,5 +512,174 @@ namespace SQLRecon.Modules
             }
             return sqlString;
         }
+
+        /// <summary>
+        /// Constructs a nested OPENQUERY statement for querying linked SQL servers in a chain.
+        /// </summary>
+        /// <param name="path">An array of server names representing the path of linked servers to traverse. 0 in front of them is mandatory to make the query work properly.</param>
+        /// <param name="sql">The SQL query to be executed at the final server in the linked server path.</param>
+        /// <param name="ticks">A counter used to double the single quotes for each level of nesting.</param>
+        /// <returns>A string containing the nested OPENQUERY statement.</returns>
+        /// <example>
+        /// Calling GetSQLServerLinkQuery(new[] { "0", "a", "b", "c", "d" }, "SELECT * FROM SomeTable WHERE 'a'='a'") will produce:
+        /// select * from openquery("a", 'select * from openquery("b", ''select * from openquery("c", ''''select * from openquery("d", ''''''SELECT * FROM SomeTable WHERE ''a''=''''a'''''''''')''')'')')
+        /// </example>
+        public static string GetSQLServerLinkQuery(string[] path, string sql, int ticks = 0)
+        {
+            if (path.Length <= 1)
+            {
+                // Base case: when there's only one server or none, just return the SQL with appropriately doubled quotes.
+                return sql.Replace("'", new string('\'', (int)Math.Pow(2, ticks)));
+            }
+            else
+            {
+                var stringBuilder = new StringBuilder();
+                stringBuilder.Append("select * from openquery(\"");
+                stringBuilder.Append(path[1]);  // Taking the next server in the path.
+                stringBuilder.Append("\", ");
+                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
+
+                // Recursively build the nested query for the rest of the path.
+                string[] subPath = new string[path.Length - 1];
+                Array.Copy(path, 1, subPath, 0, path.Length - 1);
+
+                stringBuilder.Append(GetSQLServerLinkQuery(subPath, sql, ticks + 1)); // Recursive call with incremented ticks.
+                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
+                stringBuilder.Append(")");
+
+                return stringBuilder.ToString();
+            }
+        }
+
+
+        /// <summary>
+        /// The ExecuteTunnelQuery method is used to execute a query against a chain of
+        /// linked SQL servers using openquery. This method expects that the output
+        /// only returns one value on a single line and does not account for multi-line returns.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="serverChain"></param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public string ExecuteTunnelQuery(SqlConnection con, string[] serverChain, string query)
+        {
+            string sqlString = "";
+
+            try
+            {
+                string finalCommand = GetSQLServerLinkQuery(serverChain, query);
+                SqlCommand command = new(finalCommand, con);
+                SqlDataReader reader = command.ExecuteReader();
+                while (reader.Read() == true)
+                {
+                    sqlString += reader[0];
+                }
+                reader.Close();
+            }
+            catch (SqlException ex)
+            {
+                sqlString += _print.Error(string.Format("{0}.", ex.Errors[0].Message.ToString()));
+            }
+            catch (InvalidOperationException ex)
+            {
+                sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
+            }
+
+            return sqlString;
+        }
+
+        /// <summary>
+        /// The ExecuteTunnelCustomQuery method is used to execute a query against a chain of
+        /// linked SQL servers using openquery. This method expects that the output
+        /// returns multiple lines.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="serverChain"></param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public string ExecuteTunnelCustomQuery(SqlConnection con, string[] serverChain, string query)
+        {
+            string sqlString = "";
+
+            try
+            {
+                string finalCommand = GetSQLServerLinkQuery(serverChain, query);
+                SqlCommand command = new(finalCommand, con);
+                SqlDataReader reader = command.ExecuteReader();
+                using (reader)
+                {
+                    if (reader.HasRows)
+                    {
+                        int hyphenCount = 0;
+                        string columnName = "";
+                        int columnCount = 0;
+                        // Print the column names.
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            if (reader.GetName(i).Equals(""))
+                            {
+                                // On some occasions, there may not be a column name returned, so we add one.
+                                columnName = "column" + i.ToString() + " | ";
+                            }
+                            else
+                            {
+                                columnName = reader.GetName(i) + " | ";
+                            }
+                            sqlString += columnName;
+                            hyphenCount += columnName.Length;
+                            columnCount += 1;
+                        }
+
+                        sqlString += "\n";
+                        sqlString += new String('-', hyphenCount);
+                        sqlString += "\n";
+
+                        // Retrieve data from the SQL data reader.
+                        while (reader.Read())
+                        {
+                            // Apply formatting if there is more than one column.
+                            if (columnCount <= 1)
+                            {
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    sqlString += reader.GetValue(i) + " | " + "\n";
+                                }
+                            }
+                            // Apply formatting if there is more than one column.
+                            else
+                            {
+
+                                for (int i = 0; i < reader.FieldCount; i++)
+                                {
+                                    if (i == (columnCount - 1))
+                                    {
+                                        sqlString += reader.GetValue(i) + " | \n";
+                                    }
+                                    else
+                                    {
+                                        sqlString += reader.GetValue(i) + " | ";
+                                    }
+                                }
+                            }
+                        }
+
+                        // Remove the last few characters, wich consist of a space, pipe, space.
+                        sqlString = sqlString.Remove(sqlString.Length - 2);
+                    }
+                }
+                reader.Close();
+            }
+            catch (SqlException ex)
+            {
+                sqlString += _print.Error(string.Format("{0}.", ex.Errors[0].Message.ToString()));
+            }
+            catch (InvalidOperationException ex)
+            {
+                sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
+            }
+            return sqlString;
+        }
+
+
     }
 }

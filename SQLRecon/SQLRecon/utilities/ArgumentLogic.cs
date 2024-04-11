@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using SQLRecon.Commands;
 
 namespace SQLRecon.Utilities
@@ -15,6 +16,7 @@ namespace SQLRecon.Utilities
         private static readonly Dictionary<string, int> _standardArgumentsAndOptionCount = _gV.StandardArgumentsAndOptionCount;
         private static readonly Dictionary<string, int> _impersonationArgumentsAndOptionCount = _gV.ImpersonationArgumentsAndOptionCount;
         private static readonly Dictionary<string, int> _linkedArgumentsAndOptionCount = _gV.LinkedArgumentsAndOptionCount;
+        private static readonly Dictionary<string, int> _tunnelArgumentsAndOptionCount = _gV.TunnelArgumentsAndOptionCount;
         private static readonly Dictionary<string, int> _sccmArgumentsAndOptionCount = _gV.SccmArgumentsAndOptionCount;
 
         /// <summary>
@@ -116,6 +118,11 @@ namespace SQLRecon.Utilities
             else if (_sccmArgumentsAndOptionCount.TryGetValue(moduleName, out int sccmArgumentCount))
             {
                 _checkSccm(argDict, sccmArgumentCount);
+            }
+            else if (argDict.ContainsKey("tunnel"))
+            {
+                _tunnelArgumentsAndOptionCount.TryGetValue(moduleName, out int tunnelArgumentCount);
+                _checkTunnel(argDict, tunnelArgumentCount);
             }
             else
             {
@@ -625,6 +632,74 @@ namespace SQLRecon.Utilities
                 return;
             }
         }
+
+        /// <summary>
+        /// The _checkTunnel method is reponsible for validating that the supplied
+        /// command is structured correctly and has the appropriate arguments, if
+        /// necessary for a specific module. This function performs error handling for
+        /// all tunnel SQL server modules if the structure of a command is valid, 
+        /// global variables are set and a call is made to the ModuleHandler class.
+        /// </summary>
+        /// <param name="argumentDictionary"></param>
+        /// <param name="argumentCount"></param>
+        private static void _checkTunnel(Dictionary<string, string> argumentDictionary, int argumentCount = 1)
+        {
+
+            if (argumentCount < 1)
+            {
+                return;
+            }
+
+            // Check if the "/t:" or "/tunnel:" flag has been supplied.
+            if (!argumentDictionary.ContainsKey("tunnel") && !argumentDictionary.ContainsKey("t"))
+            {
+                _print.Error("Must supply a tunnel SQL server chain (/t:, /tunnel:).", true);
+                // Go no further.
+                return;
+            }
+
+            // Get the tunnel chain, checking both possible keys.
+            string tunnelChain = argumentDictionary.ContainsKey("tunnel") ? argumentDictionary["tunnel"] : argumentDictionary["t"];
+
+
+            // Split the tunnel chain into an array of server names.
+            string[] serverChain = tunnelChain.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (serverChain[0] != "0")
+            {
+                var newPath = new List<string> { "0" };
+                newPath.AddRange(serverChain);
+                serverChain = newPath.ToArray();
+            }
+
+            _gV.TunnelPath = string.Join(" -> ", serverChain);
+
+            if (serverChain.Length == 0)
+            {
+                _print.Error("Invalid tunnel SQL server chain provided.", true);
+                // Go no further.
+                return;
+            }
+
+            _gV.Module = argumentDictionary["module"].ToLower();
+            _gV.TunnelSqlServer = serverChain;  // Assign the array to the global variable.
+            
+
+
+
+            // This is a custom error message and flag assignment for modules which use the '/c:, /command:' flag.
+            if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("tquery") ||
+                argumentDictionary["module"].ToLower().Equals("txpcmd") ||
+                argumentDictionary["module"].ToLower().Equals("tolecmd") ||
+                argumentDictionary["module"].ToLower().Equals("tagentcmd"))
+            {
+               _gV.Arg1 = argumentDictionary["command"];
+            }
+
+            _checkOptionalArgument(argumentDictionary);
+
+        }
+
 
         /// <summary>
         /// The _checkStandard method is reponsible for validating that the supplied

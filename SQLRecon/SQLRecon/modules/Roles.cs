@@ -17,7 +17,7 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public bool CheckServerRole(SqlConnection con, string role, bool print = false)
         {
-            var sqlOutput = _sqlQuery.ExecuteQuery(con, 
+            var sqlOutput = _sqlQuery.ExecuteQuery(con,
                 "SELECT IS_SRVROLEMEMBER('" + role + "');").TrimStart('\n');
 
             if (print)
@@ -25,6 +25,25 @@ namespace SQLRecon.Modules
 
             return sqlOutput.Equals("1");
         }
+
+        /// <summary>
+        /// The CheckTunnelServerRole method checks if a user is part of a role on a chain of linked SQL server.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="role"></param>
+        /// <param name="print"></param>
+        /// <returns></returns>
+        public bool CheckTunnelServerRole(SqlConnection con, string role, string[] tunnelSQLServer, bool print = false)
+        {
+            var sqlOutput = _sqlQuery.ExecuteTunnelQuery(con, tunnelSQLServer,
+                "SELECT IS_SRVROLEMEMBER('" + role + "');").TrimStart('\n');
+
+            if (print)
+                _roleResult(role, sqlOutput);
+
+            return sqlOutput.Equals("1");
+        }
+
 
         /// <summary>
         /// The CheckLinkedServerRole method checks if a user is part of a role on a linked SQL server.
@@ -63,6 +82,7 @@ namespace SQLRecon.Modules
 
             return sqlOutput.Equals("1");
         }
+
 
         /// <summary>
         /// The _roleResult method prints if a user is part of a role or not.

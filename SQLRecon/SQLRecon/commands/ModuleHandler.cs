@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using SQLRecon.Modules;
 using SQLRecon.Utilities;
 
@@ -28,6 +30,8 @@ namespace SQLRecon.Commands
         private static readonly string _database = _gV.Database;
         private static readonly string _impersonate = _gV.Impersonate;
         private static readonly string _linkedSqlServer = _gV.LinkedSqlServer;
+        private static readonly string[] _tunnelSqlServer = _gV.TunnelSqlServer;
+        private static readonly string _tunnelPath = _gV.TunnelPath;
         private static readonly string _module = _gV.Module;
         private static readonly string _sqlServer = _gV.SqlServer;
 
@@ -69,7 +73,7 @@ namespace SQLRecon.Commands
             {
                 // Match the method name to the module that has been supplied as an argument.
                 MethodInfo method = type.GetMethod(_module);
-
+               
                 if (method != null)
                 {
                     // Call the method.
@@ -159,13 +163,13 @@ namespace SQLRecon.Commands
         /// The columns method is used against single instances of SQL server to
         /// list the columns for a table in a database.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name.       
         /// </summary>
         public static void columns()
         {
             _print.Status(string.Format("Displaying columns from table '{1}' in '{0}' on {2}",
                 _arg1, _arg2, _sqlServer), true);
-
+                
             _query = "use " + _arg1 + ";" +
                 "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
                 "WHERE TABLE_NAME = '" + _arg2 + "' ORDER BY ORDINAL_POSITION;";
@@ -338,31 +342,27 @@ namespace SQLRecon.Commands
         /// </summary>
         public static void limpersonate()
         {
-
             // Display the current server user
             string currentUserQuery = "SELECT SYSTEM_USER;";
             string currentUserResult = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, currentUserQuery);
-
             string currentUser = currentUserResult.Split('\n').Skip(2).FirstOrDefault()?.Trim().TrimEnd(new char[] { ' ', '|' });
 
             _print.Status($"Connected to {_linkedSqlServer} from {_sqlServer} with server user '{currentUser}'", true);
 
             // Query to check if the current user on the linked server is a sysadmin
-            string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER(''sysadmin'');";
+            string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER('sysadmin');";
             string isSysAdmin = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, sysAdminCheckQuery);
 
             if (isSysAdmin.Contains("1"))
             {
-                // If the user is a sysadmin on the linked server, they can impersonate any login
                 _print.Status("The user can impersonate any account on the linked server.", true);
-                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN (''SQL_LOGIN'', ''WINDOWS_LOGIN'') AND name NOT LIKE ''##%'';";
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
                 string allLogins = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, allLoginsQuery);
                 Console.WriteLine(!string.IsNullOrWhiteSpace(allLogins) ? allLogins : "No logins found to impersonate on the linked server.");
             }
             else
             {
-                // If not a sysadmin on the linked server, enumerate all users and check which ones can be impersonated
-                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN (''SQL_LOGIN'', ''WINDOWS_LOGIN'') AND name NOT LIKE ''##%'';";
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
                 string allLogins = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, allLoginsQuery);
 
                 if (!string.IsNullOrWhiteSpace(allLogins))
@@ -370,7 +370,11 @@ namespace SQLRecon.Commands
                     foreach (var login in allLogins.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).Skip(1)) // Skip header
                     {
                         string user = login.Trim().Split('|')[0].Trim(); // Extract the username
-                        if (_sqlQuery.CanImpersonate(_connection, user))
+                                                                         // Directly check for impersonation possibility for each user
+                        string impersonateCheckQuery = $"SELECT 1 FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND b.name = '{user.Replace("'", "''")}'";
+                        string impersonateCheckResult = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, impersonateCheckQuery);
+
+                        if (!string.IsNullOrWhiteSpace(impersonateCheckResult))
                         {
                             Console.WriteLine($"{user} can potentially be impersonated on the linked server {_linkedSqlServer}.");
                         }
@@ -382,6 +386,7 @@ namespace SQLRecon.Commands
                 }
             }
         }
+
 
 
 
@@ -412,19 +417,19 @@ namespace SQLRecon.Commands
 
             // Query to fetch detailed linked server information along with login mappings
             _query = @"
-        SELECT
-            srv.name AS [Linked Server],
-            srv.product,
-            srv.provider,
+        SELECT 
+            srv.name AS [Linked Server], 
+            srv.product, 
+            srv.provider, 
             srv.data_source,
-            COALESCE(prin.name, 'N/A') AS [Local Login],
-            ll.uses_self_credential AS [Is Self Mapping],
+            COALESCE(prin.name, 'N/A') AS [Local Login], 
+            ll.uses_self_credential AS [Is Self Mapping], 
             ll.remote_name AS [Remote Login]
-        FROM
+        FROM 
             sys.servers srv
             LEFT JOIN sys.linked_logins ll ON srv.server_id = ll.server_id
             LEFT JOIN sys.server_principals prin ON ll.local_principal_id = prin.principal_id
-        WHERE
+        WHERE 
             srv.is_linked = 1;";
 
             // Execute the query and check if the output is empty
@@ -463,14 +468,14 @@ namespace SQLRecon.Commands
         /// The rows method is used against single instances of SQL server to
         /// determine the number of ` in a table.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name. 
         /// </summary>
         public static void rows()
         {
             _print.Status(string.Format("Displaying number of rows from table '{1}' in '{0}' on {2}",
                 _arg1, _arg2, _sqlServer), true);
 
-            _query = "use " + _arg1 + ";" +
+            _query = "use " + _arg1 + ";" + 
                 "SELECT COUNT(*) as row_count FROM " + _arg2 + ";";
             _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
         }
@@ -483,7 +488,7 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void search()
         {
-            _print.Status(string.Format("Searching for columns containing '{0}' in '{1}' on {2}",
+            _print.Status(string.Format("Searching for columns containing '{0}' in '{1}' on {2}", 
                 _arg1, _database, _sqlServer), true);
 
             _query = "SELECT table_name, column_name " +
@@ -526,12 +531,12 @@ namespace SQLRecon.Commands
         public static void users()
         {
             _print.Status(string.Format("Users in the '{0}' database on {1}", _database, _sqlServer), true);
-
+            
             _query = "SELECT name AS username, create_date, " +
                     "modify_date, type_desc AS type, authentication_type_desc AS " +
                     "authentication_type FROM sys.database_principals WHERE type NOT " +
                     "IN ('A', 'R', 'X') AND sid IS NOT null ORDER BY username;";
-
+            
             Console.WriteLine(_sqlQuery.ExecuteCustomQuery(_connection, _query));
         }
 
@@ -543,6 +548,14 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void whoami()
         {
+            _query = "SELECT SYSTEM_USER;";
+            _print.Success(string.Format("Logged in as server user '{0}'",
+                _sqlQuery.ExecuteQuery(_connection, _query)), true);
+
+            _query = "SELECT USER_NAME();";
+            _print.Success(string.Format("Mapped to the username '{0}'",
+                _sqlQuery.ExecuteQuery(_connection, _query)), true);
+
             _print.Status(string.Format("Determining user permissions on {0}", _sqlServer), true);
 
             _print.Status("Roles:", true);
@@ -599,7 +612,7 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void ladsi()
         {
-            _print.Status(string.Format("Obtaining ADSI credentials for '{1}' on {2} via {1}",
+            _print.Status(string.Format("Obtaining ADSI credentials for '{1}' on {2} via {1}", 
                 _sqlServer, _arg1, _linkedSqlServer), true);
             _adsi.Linked(_connection, _arg1, _arg2, _linkedSqlServer, _sqlServer);
         }
@@ -612,7 +625,7 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void lagentcmd()
         {
-            _print.Status(string.Format("Executing '{0}' using PowerShell on {1} via {2}",
+            _print.Status(string.Format("Executing '{0}' using PowerShell on {1} via {2}", 
                 _arg1, _linkedSqlServer, _sqlServer), true);
             _agentJobs.Linked(_connection, _linkedSqlServer, "PowerShell", _arg1, _sqlServer);
         }
@@ -651,7 +664,7 @@ namespace SQLRecon.Commands
         /// The lcolumns method is used against linked SQL servers to
         /// to list the columns for a table in a database.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name.       
         /// </summary>
         public static void lcolumns()
         {
@@ -665,7 +678,7 @@ namespace SQLRecon.Commands
                 return;
             }
 
-            _print.Status(string.Format("Displaying columns from '{1}' in '{0}' on {2} via {3}",
+            _print.Status(string.Format("Displaying columns from '{1}' in '{0}' on {2} via {3}", 
                 _arg1, _arg2, _linkedSqlServer, _sqlServer), true);
 
             _query = "use " + _arg1 + ";" +
@@ -724,7 +737,7 @@ namespace SQLRecon.Commands
         {
             _print.Status(string.Format("Disabling OLE Automation Procedures on {0} via {1}",
                 _linkedSqlServer, _sqlServer), true);
-            _config.LinkedModuleToggle(_connection, "OLE Automation Procedures", "0",
+            _config.LinkedModuleToggle(_connection, "OLE Automation Procedures", "0", 
                 _linkedSqlServer, _sqlServer);
         }
 
@@ -796,19 +809,19 @@ namespace SQLRecon.Commands
 
             // Query to fetch detailed linked server information along with login mappings
             _query = @"
-                SELECT
-                    srv.name AS [Linked Server],
-                    srv.product,
-                    srv.provider,
+                SELECT 
+                    srv.name AS [Linked Server], 
+                    srv.product, 
+                    srv.provider, 
                     srv.data_source,
-                    COALESCE(prin.name, ''N/A'') AS [Local Login],
-                    ll.uses_self_credential AS [Is Self Mapping],
+                    COALESCE(prin.name, ''N/A'') AS [Local Login], 
+                    ll.uses_self_credential AS [Is Self Mapping], 
                     ll.remote_name AS [Remote Login]
-                FROM
+                FROM 
                     sys.servers srv
                     LEFT JOIN sys.linked_logins ll ON srv.server_id = ll.server_id
                     LEFT JOIN sys.server_principals prin ON ll.local_principal_id = prin.principal_id
-                WHERE
+                WHERE 
                     srv.is_linked = 1";
 
             string result = _sqlQuery.ExecuteLinkedCustomQuery(_connection, _linkedSqlServer, _query);
@@ -847,7 +860,7 @@ namespace SQLRecon.Commands
         /// The lrows method is used against linked SQL servers to
         /// determine the number of rows in a table.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name. 
         /// </summary>
         public static void lrows()
         {
@@ -959,11 +972,11 @@ namespace SQLRecon.Commands
                 _linkedSqlServer, _sqlServer), true);
 
             _query = "SELECT SYSTEM_USER;";
-            _print.Status(string.Format("Logged in as {0}", _sqlQuery.ExecuteLinkedQuery(
+            _print.Success(string.Format("Logged in as {0}", _sqlQuery.ExecuteLinkedQuery(
                 _connection, _linkedSqlServer, _query)), true);
 
             _query = "SELECT USER_NAME();";
-            _print.Status(string.Format("Mapped to the user {0}", _sqlQuery.ExecuteLinkedQuery(
+            _print.Success(string.Format("Mapped to the user {0}", _sqlQuery.ExecuteLinkedQuery(
                 _connection, _linkedSqlServer, _query)), true);
 
             _print.Status("Roles:", true);
@@ -1002,6 +1015,140 @@ namespace SQLRecon.Commands
                 _arg1, _linkedSqlServer, _sqlServer), true);
             _xpCmdShell.Linked(_connection, _arg1, _linkedSqlServer);
         }
+
+        /*
+         * *****************************************************************
+         * *****************************************************************
+         * *****************************************************************
+         * ***************     Tunnel SQL Server Modules    ****************
+         * *****************************************************************
+         * *****************************************************************
+         * *****************************************************************
+         */
+
+        /// <summary>
+        /// The tquery method is used against a chain of linked SQL servers to
+        /// execute a user supplied SQL command.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// <summary>
+        public static void tquery()
+        {
+            _print.Status($"Executing '{_arg1}' from tunnel {_tunnelPath}", true);
+            _print.IsOutputEmpty(_sqlQuery.ExecuteTunnelCustomQuery(
+                _connection, _tunnelSqlServer, _arg1), true);
+        }
+
+        /// <summary>
+        /// The twhoami method is used against a chain of linked SQL servers to
+        /// determine the current users level of access.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// <summary>
+        public static void twhoami()
+        {
+            _query = "SELECT SYSTEM_USER;";
+            _print.Success(string.Format("Logged in as server user '{0}'",
+                _sqlQuery.ExecuteTunnelQuery(_connection, _tunnelSqlServer, _query)), true);
+
+            _query = "SELECT USER_NAME();";
+            _print.Success(string.Format("Mapped to the username '{0}'",
+                _sqlQuery.ExecuteTunnelQuery(_connection, _tunnelSqlServer, _query)), true);
+
+            _print.Status($"Determining user permissions from tunnel {_tunnelPath}", true);
+
+            _print.Status("Roles:", true);
+
+            // This SQL command can be run by low privilege users and extracts all
+            // of the observable roles which are present in the current database
+            // "select name from sys.database_principals where type = 'R'" also works.
+            _query = "SELECT [name] FROM sysusers WHERE issqlrole = 1;";
+            string getRoles = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query);
+
+            // Get rid of the first two elements, which will be "name" and "-------".
+            string[] rolesArr = getRoles.TrimStart('\n').Replace(" |", "").Split('\n').Skip(2).ToArray();
+
+            // These are the default MS SQL database roles.
+            string[] defaultRoles = { "sysadmin", "setupadmin", "serveradmin", "securityadmin",
+                "processadmin", "diskadmin", "dbcreator", "bulkadmin" };
+
+            string[] combinedRoles = rolesArr.Concat(defaultRoles).ToArray();
+
+            // Test to see if the current principal is a member of any roles.
+            foreach (var item in combinedRoles)
+            {
+                _roles.CheckTunnelServerRole(_connection, item.Trim(), _tunnelSqlServer, true);
+            }
+        }
+
+
+        public static void timpersonate()
+        {
+
+            // Display the current server user
+            string currentUserQuery = "SELECT SYSTEM_USER;";
+            string currentUserResult = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, currentUserQuery);
+            string currentUser = currentUserResult.Split('\n').Skip(2).FirstOrDefault()?.Trim().TrimEnd(new char[] { ' ', '|' });
+
+            _print.Success($"Tunneled through {_tunnelPath} and emerging with the user '{currentUser}'", true);
+
+            // Query to check if the current user on the last server in the tunnel is a sysadmin
+            string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER('sysadmin');";
+            string isSysAdmin = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, sysAdminCheckQuery);
+
+            if (isSysAdmin.Contains("1"))
+            {
+                _print.Status("The user can impersonate any account on the linked server.", true);
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
+                string allLogins = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, allLoginsQuery);
+                Console.WriteLine(!string.IsNullOrWhiteSpace(allLogins) ? allLogins : "No logins found to impersonate on the linked server.");
+            }
+            else
+            {
+                // Enumerate all users and check which ones can be impersonated
+                string allLoginsQuery = "SELECT name FROM sys.server_principals WHERE type_desc IN ('SQL_LOGIN', 'WINDOWS_LOGIN') AND name NOT LIKE '##%';";
+                string allLogins = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, allLoginsQuery);
+
+                if (!string.IsNullOrWhiteSpace(allLogins))
+                {
+                    foreach (var login in allLogins.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).Skip(1))
+                    {
+                        string user = login.Trim().Split('|')[0].Trim(); // Extract the username
+                                                                         // Directly check for impersonation possibility for each user
+                        string impersonateCheckQuery = $"SELECT 1 FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND b.name = '{user.Replace("'", "''")}'";
+                        string impersonateCheckResult = _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, impersonateCheckQuery);
+
+                        if (!string.IsNullOrWhiteSpace(impersonateCheckResult))
+                        {
+                            Console.WriteLine($"{user} can potentially be impersonated on the linked server.");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No logins found to check for impersonation on the linked server.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The tusers method is used against a chain of linked SQL servers to
+        /// obtain local users in the SQL instance.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// <summary>
+        public static void tusers()
+        {
+            _print.Status($"Users in the '{_database}' database from tunnel {_tunnelPath}", true);
+
+            _query = "SELECT name AS username, create_date, modify_date, type_desc " +
+                "AS type, authentication_type_desc AS authentication_type FROM sys.database_principals " +
+                "WHERE type NOT IN ('A', 'R', 'X') AND sid IS NOT null ORDER BY username;";
+
+            Console.WriteLine(_sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query));
+        }
+
+
 
         /*
          * *****************************************************************
@@ -1072,13 +1219,13 @@ namespace SQLRecon.Commands
         /// The icolumns method is used in conjunction with an account that can be
         /// impersonated to list the columns for a table in a database.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name.       
         /// </summary>
         public static void icolumns()
         {
-            _print.Status(string.Format("Displaying columns from '{0}' in '{2}' as '{1}' on {3}",
+            _print.Status(string.Format("Displaying columns from '{0}' in '{2}' as '{1}' on {3}", 
                 _arg2, _impersonate, _arg1, _sqlServer), true);
-
+                
             _query = "use " + _arg1 + ";" +
                 "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
                 "WHERE TABLE_NAME = '" + _arg2 + "' ORDER BY ORDINAL_POSITION;";
@@ -1109,9 +1256,9 @@ namespace SQLRecon.Commands
         public static void idatabases()
         {
             _print.Status(string.Format("Databases on {0}", _sqlServer), true);
-
+            
             _query = "SELECT dbid, name, crdate, filename FROM master.dbo.sysdatabases;";
-
+            
             Console.WriteLine(_sqlQuery.ExecuteImpersonationCustomQuery(
                 _connection, _impersonate, _query));
         }
@@ -1271,7 +1418,7 @@ namespace SQLRecon.Commands
         /// The irows method is used in conjunction with an account that can be
         /// impersonated to determine the number of rows in a table.
         /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
+        /// module name that is supplied via command line, to the actual method name. 
         /// </summary>
         public static void irows()
         {
@@ -1385,7 +1532,7 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void ixpcmd()
         {
-            _print.Status(string.Format("Executing '{0}' as '{1}' on {2}.",
+            _print.Status(string.Format("Executing '{0}' as '{1}' on {2}.", 
                 _arg1, _impersonate, _sqlServer), true);
             _xpCmdShell.Impersonate(_connection, _arg1, _impersonate);
         }
@@ -1412,7 +1559,7 @@ namespace SQLRecon.Commands
 
         /// <summary>
         /// The ssites method lists all sites stored in the SCCM databases' 'DPInfo' table.
-        /// This can provide additional attack avenues as different sites
+        /// This can provide additional attack avenues as different sites 
         /// This method needs to be public as reflection is used to match the
         /// module name that is supplied via command line, to the actual method name.
         /// </summary>
@@ -1422,7 +1569,7 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
-        /// The SccmClientLogons method queries the 'Computer_System_DATA' table to
+        /// The SccmClientLogons method queries the 'Computer_System_DATA' table to 
         /// retrieve all associated SCCM clients along with the user that last logged into them.
         /// NOTE: This only updates once a week by default and will not be 100% up to date.
         /// This method needs to be public as reflection is used to match the
@@ -1470,7 +1617,7 @@ namespace SQLRecon.Commands
 
         /// <summary>
         /// The sdecryptcredentials method recovers encrypted credential string
-        /// for accounts vaulted in SCCM and attempts to use the Microsoft Systems Management Server CSP
+        /// for accounts vaulted in SCCM and attempts to use the Microsoft Systems Management Server CSP 
         /// to attempt to decrypt them to plaintext. Uses the logic from @XPN's initial PoC SCCM secret decryption gist:
         /// https://gist.github.com/xpn/5f497d2725a041922c427c3aaa3b37d1
         /// This function must be ran from an SCCM management server in a context
@@ -1486,7 +1633,7 @@ namespace SQLRecon.Commands
         /// <summary>
         /// The AddSCCMAdmin method will elevate the specified account to a 'Full Administrator'
         /// within SCCM. If target user is already an SCCM user, this module will instead add necessary
-        /// privileges to elevate. This module require sysadmin or similar privileges as writing to
+        /// privileges to elevate. This module require sysadmin or similar privileges as writing to 
         /// SCCM database tables is required.
         /// This method needs to be public as reflection is used to match the
         /// module name that is supplied via command line, to the actual method name.
@@ -1498,8 +1645,8 @@ namespace SQLRecon.Commands
 
         /// <summary>
         /// The RemoveSCCMAdmin method removes the privileges of a user by removing a user
-        /// entirely from the SCCM database. Use the arguments provided by output of the
-        /// AddSCCMAdmin command to run this command. This module require sysadmin or
+        /// entirely from the SCCM database. Use the arguments provided by output of the 
+        /// AddSCCMAdmin command to run this command. This module require sysadmin or 
         /// similar privileges as writing to SCCM database tables is required.
         /// This method needs to be public as reflection is used to match the
         /// module name that is supplied via command line, to the actual method name.

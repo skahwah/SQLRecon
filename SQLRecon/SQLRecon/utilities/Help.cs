@@ -118,6 +118,18 @@ namespace SQLRecon.Utilities
 
             Console.WriteLine("");
             Console.WriteLine("------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tTunnel Modules (/m:, /module:) are executed on a chain of linked SQL server (/t:, /tunnel:):");
+            Console.WriteLine("------------------------------------------------------------------------------------------");
+
+            table = new TablePrinter("", "", "");
+            table.AddRow("\ttQuery /t:SQL01,SQL02,SQL03 /c:QUERY", "|", "Execute a SQL query");
+            table.AddRow("\ttWhoami /t:SQL01,SQL02,SQL03", "|", "Display what user you are logged in as, mapped as and what roles exist");
+            table.AddRow("\ttUsers /t:SQL01,SQL02,SQL03", "|", "Display what user accounts and groups can authenticate against the database");
+            table.AddRow("\ttImpersonate", "|", "Enumerate user accounts that can be impersonated at the end of the tunnel");
+            table.Print();
+
+            Console.WriteLine("");
+            Console.WriteLine("------------------------------------------------------------------------------------------");
             Console.WriteLine("\tLinked Modules (/m:, /module:) are executed on a linked SQL server (/l:, /lhost:):");
             Console.WriteLine("------------------------------------------------------------------------------------------");
 
