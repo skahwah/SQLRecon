@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Principal;
 using SQLRecon.Utilities;
+using System.Net;
 
 namespace SQLRecon.Modules
 {
@@ -52,6 +53,8 @@ namespace SQLRecon.Modules
                         : instance.Substring(0, i2);
 
                     sqlInstance.ComputerName = computerName;
+                    var addresses = Dns.GetHostAddresses(computerName);
+                    sqlInstance.IpAddress = addresses.Length > 0 ? addresses[0].ToString() : "No IP found";
                     sqlInstance.Instance = instance;
                     sqlInstance.ServiceName = serviceName;
                     sqlInstance.Spn = spn;
@@ -75,6 +78,7 @@ namespace SQLRecon.Modules
         private sealed class SqlInstance
         {
             public string ComputerName { get; set; }
+            public string IpAddress { get; set; }
             public string Instance { get; set; }
             public string AccountSid { get; set; }
             public string AccountName { get; set; }
@@ -87,6 +91,7 @@ namespace SQLRecon.Modules
             {
                 Console.WriteLine("");
                 _print.Nested(string.Format("ComputerName:  {0}", ComputerName), true);
+                _print.Nested(string.Format("IP Address:    {0}", IpAddress), true);
                 _print.Nested(string.Format("Instance:      {0}", Instance), true);
                 _print.Nested(string.Format("AccountSid:    {0}", AccountSid), true);
                 _print.Nested(string.Format("AccountName:   {0}", AccountName), true);
