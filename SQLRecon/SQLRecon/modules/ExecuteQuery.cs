@@ -44,110 +44,131 @@ namespace SQLRecon.Modules
             return sqlString;
         }
 
-       
-
-    /// <summary>
-    /// The ExecuteCustomQuery method is used to execute a query against a SQL
-    /// server. This method expects that the output returns multiple lines.
-    /// </summary>
-    /// <param name="con"></param>
-    /// <param name="query"></param>
-    /// <returns></returns>
-    public string ExecuteCustomQuery(SqlConnection con, string query)
-    {
-        StringBuilder sqlStringBuilder = new StringBuilder();
-        List<int> columnWidths;
-        List<string[]> rows = new List<string[]>();
-
-        try
+        /// <summary>
+        /// Converts the data from a SqlDataReader into a Markdown-friendly table format.
+        /// </summary>
+        /// <param name="reader">The SqlDataReader containing the query results.</param>
+        /// <returns>A string containing the results formatted as a Markdown table.</returns>
+        private string ConvertToMarkdownTable(SqlDataReader reader)
         {
-            SqlCommand command = new(query, con);
-            SqlDataReader reader = command.ExecuteReader();
+            StringBuilder sqlStringBuilder = new StringBuilder();
+            List<int> columnWidths = new List<int>();
+            List<string[]> rows = new List<string[]>();
 
-            using (reader)
+            if (reader.HasRows)
             {
-                if (reader.HasRows)
+                int columnCount = reader.FieldCount;
+
+                // Initialize column widths with header lengths
+                for (int i = 0; i < columnCount; i++)
                 {
-                    int columnCount = reader.FieldCount;
-                    columnWidths = new List<int>(new int[columnCount]);
+                    columnWidths.Add(reader.GetName(i).Length);
+                }
 
-                    // Initialize column widths with header lengths and read data
-                    while (reader.Read())
-                    {
-                        string[] row = new string[columnCount];
-                        for (int i = 0; i < columnCount; i++)
-                        {
-                            string cellValue = reader.GetValue(i).ToString();
-                            row[i] = cellValue;
-                            columnWidths[i] = Math.Max(columnWidths[i], cellValue.Length);
-                        }
-                        rows.Add(row);
-                    }
-
-                    // Ensure column names are checked for width after data read
+                // Read data and calculate column widths
+                while (reader.Read())
+                {
+                    string[] row = new string[columnCount];
                     for (int i = 0; i < columnCount; i++)
                     {
-                        string columnName = reader.GetName(i).Equals("") ? "column" + i.ToString() : reader.GetName(i);
-                        columnWidths[i] = Math.Max(columnWidths[i], columnName.Length);
+                        string cellValue = reader.GetValue(i).ToString();
+                        row[i] = cellValue;
+                        columnWidths[i] = Math.Max(columnWidths[i], cellValue.Length);
                     }
+                    rows.Add(row);
+                }
 
-                    // Print the column names
+                // Ensure column names are checked for width after data read
+                for (int i = 0; i < columnCount; i++)
+                {
+                    string columnName = reader.GetName(i).Equals("") ? "column" + i.ToString() : reader.GetName(i);
+                    columnWidths[i] = Math.Max(columnWidths[i], columnName.Length);
+                }
+
+                // Print the column names
+                for (int i = 0; i < columnCount; i++)
+                {
+                    string columnName = reader.GetName(i).Equals("") ? "column" + i.ToString() : reader.GetName(i);
+                    sqlStringBuilder.Append("| ").Append(columnName.PadRight(columnWidths[i])).Append(" ");
+                }
+                sqlStringBuilder.AppendLine("|");
+
+                // Print the markdown separator
+                for (int i = 0; i < columnCount; i++)
+                {
+                    sqlStringBuilder.Append("| ").Append(new string('-', columnWidths[i])).Append(" ");
+                }
+                sqlStringBuilder.AppendLine("|");
+
+                // Print the data rows
+                foreach (var row in rows)
+                {
                     for (int i = 0; i < columnCount; i++)
                     {
-                        string columnName = reader.GetName(i).Equals("") ? "column" + i.ToString() : reader.GetName(i);
-                        sqlStringBuilder.Append("| ").Append(columnName.PadRight(columnWidths[i])).Append(" ");
+                        sqlStringBuilder.Append("| ").Append(row[i].PadRight(columnWidths[i])).Append(" ");
                     }
                     sqlStringBuilder.AppendLine("|");
-
-                    // Print the markdown separator
-                    for (int i = 0; i < columnCount; i++)
-                    {
-                        sqlStringBuilder.Append("| ").Append(new string('-', columnWidths[i])).Append(" ");
-                    }
-                    sqlStringBuilder.AppendLine("|");
-
-                    // Print the data rows
-                    foreach (var row in rows)
-                    {
-                        for (int i = 0; i < columnCount; i++)
-                        {
-                            sqlStringBuilder.Append("| ").Append(row[i].PadRight(columnWidths[i])).Append(" ");
-                        }
-                        sqlStringBuilder.AppendLine("|");
-                    }
                 }
             }
+
+            return sqlStringBuilder.ToString();
         }
-        catch (SqlException ex)
+
+
+
+
+        /// <summary>
+        /// The ExecuteCustomQuery method is used to execute a query against a SQL
+        /// server. This method expects that the output returns multiple lines.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        public string ExecuteCustomQuery(SqlConnection con, string query)
         {
-            sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
+            StringBuilder sqlStringBuilder = new();
+
+            try
+            {
+                SqlCommand command = new(query, con);
+                SqlDataReader reader = command.ExecuteReader();
+
+                using (reader)
+                {
+                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
+                }
+                reader.Close();
+            }
+            catch (SqlException ex)
+            {
+                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                sqlStringBuilder.Append(_print.Error(ex.ToString()));
+            }
+            return sqlStringBuilder.ToString();
         }
-        catch (InvalidOperationException ex)
-        {
-            sqlStringBuilder.Append(_print.Error(ex.ToString()));
-        }
-        return sqlStringBuilder.ToString();
-    }
 
 
 
 
 
-    /// <summary>
-    /// Checks if the current user can impersonate another user in SQL Server.
-    /// This method first determines if the current user has 'sysadmin' privileges.
-    /// If the user is a 'sysadmin', they can impersonate any user, and the method returns true.
-    /// If not a 'sysadmin', the method checks if the current user has the permission
-    /// to impersonate the specified user by checking the 'IMPERSONATE' permissions in SQL Server.
-    /// If a specific user is not provided, the method assumes no impersonation is needed
-    /// and returns true, indicating that the operation can proceed without impersonation.
-    /// </summary>
-    /// <param name="con">The SQL connection to use for executing the check.</param>
-    /// <param name="impersonate">The username of the user to check impersonation permissions for.
-    /// If null or empty, the method returns true, assuming no impersonation is required.</param>
-    /// <returns>True if the current user can impersonate the specified user or is a 'sysadmin',
-    /// false otherwise.</returns>
-    public bool CanImpersonate(SqlConnection con, string impersonate = null)
+        /// <summary>
+        /// Checks if the current user can impersonate another user in SQL Server.
+        /// This method first determines if the current user has 'sysadmin' privileges.
+        /// If the user is a 'sysadmin', they can impersonate any user, and the method returns true.
+        /// If not a 'sysadmin', the method checks if the current user has the permission
+        /// to impersonate the specified user by checking the 'IMPERSONATE' permissions in SQL Server.
+        /// If a specific user is not provided, the method assumes no impersonation is needed
+        /// and returns true, indicating that the operation can proceed without impersonation.
+        /// </summary>
+        /// <param name="con">The SQL connection to use for executing the check.</param>
+        /// <param name="impersonate">The username of the user to check impersonation permissions for.
+        /// If null or empty, the method returns true, assuming no impersonation is required.</param>
+        /// <returns>True if the current user can impersonate the specified user or is a 'sysadmin',
+        /// false otherwise.</returns>
+        public bool CanImpersonate(SqlConnection con, string impersonate = null)
         {
             // Check if the current user is a sysadmin.
             string sysAdminCheckQuery = "SELECT IS_SRVROLEMEMBER('sysadmin');";
@@ -288,7 +309,7 @@ namespace SQLRecon.Modules
 
 
         /// <summary>
-        /// The ExecuteLinkedQuery method is used to execute a query against a 
+        /// The ExecuteLinkedQuery method is used to execute a query against a
         /// linked SQL server using openquery. This method expects that the output
         /// only returns one value on a single line and does not account for multi-line returns.
         /// </summary>
@@ -323,7 +344,7 @@ namespace SQLRecon.Modules
         }
 
         /// <summary>
-        /// The ExecuteLinkedCustomQuery method is used to execute a query against a 
+        /// The ExecuteLinkedCustomQuery method is used to execute a query against a
         /// linked SQL server using openquery. This method expects that the output
         /// returns multiple lines.
         /// </summary>
@@ -333,84 +354,28 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteLinkedCustomQuery(SqlConnection con, string linkedSQLServer, string query)
         {
-            string sqlString = "";
+            StringBuilder sqlStringBuilder = new StringBuilder();
 
             try
             {
-                SqlCommand command = new("select * from openquery(\"" + linkedSQLServer + "\", '" + query + "')", con);
+                SqlCommand command = new($"select * from openquery(\"{linkedSQLServer}\", '{query}')", con);
                 SqlDataReader reader = command.ExecuteReader();
+
                 using (reader)
                 {
-                    if (reader.HasRows)
-                    {
-                        int hyphenCount = 0;
-                        string columnName = "";
-                        int columnCount = 0;
-                        // Print the column names.
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            if (reader.GetName(i).Equals(""))
-                            {
-                                // On some occasions, there may not be a column name returned, so we add one.
-                                columnName = "column" + i.ToString() + " | ";
-                            }
-                            else
-                            {
-                                columnName = reader.GetName(i) + " | ";
-                            }
-                            sqlString += columnName;
-                            hyphenCount += columnName.Length;
-                            columnCount += 1;
-                        }
-
-                        sqlString += "\n";
-                        sqlString += new String('-', hyphenCount);
-                        sqlString += "\n";
-
-                        // Retrieve data from the SQL data reader.
-                        while (reader.Read())
-                        {
-                            // Apply formatting if there is more than one column.
-                            if (columnCount <= 1)
-                            {
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    sqlString += reader.GetValue(i) + " | " + "\n";
-                                }
-                            }
-                            // Apply formatting if there is more than one column.
-                            else
-                            {
-
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    if (i == (columnCount - 1))
-                                    {
-                                        sqlString += reader.GetValue(i) + " | \n";
-                                    }
-                                    else
-                                    {
-                                        sqlString += reader.GetValue(i) + " | ";
-                                    }
-                                }
-                            }
-                        }
-
-                        // Remove the last few characters, wich consist of a space, pipe, space.
-                        sqlString = sqlString.Remove(sqlString.Length - 2);
-                    }
+                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
                 }
                 reader.Close();
             }
             catch (SqlException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.Errors[0].Message.ToString()));
+                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
             }
             catch (InvalidOperationException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
+                sqlStringBuilder.Append(_print.Error(ex.ToString()));
             }
-            return sqlString;
+            return sqlStringBuilder.ToString();
         }
 
 
@@ -421,7 +386,7 @@ namespace SQLRecon.Modules
         /// This is due to some stored procedures not returning accurate results
         /// when using openquery. This method expects that the output returns
         /// muliple lines.
-        /// IMPORTANT: Any queries passed into this function need to have their 
+        /// IMPORTANT: Any queries passed into this function need to have their
         /// single quotes escaped. RPC needs to be enabled on the remote host.
         /// </summary>
         /// <param name="con"></param>
@@ -430,84 +395,28 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteLinkedCustomQueryRpcExec(SqlConnection con, string linkedSqlServer, string query)
         {
-            string sqlString = "";
+            StringBuilder sqlStringBuilder = new StringBuilder();
 
             try
             {
-                SqlCommand command = new("EXECUTE ('" + query + "') AT " + linkedSqlServer + ";", con);
+                SqlCommand command = new($"EXECUTE ('{query}') AT {linkedSqlServer};", con);
                 SqlDataReader reader = command.ExecuteReader();
+
                 using (reader)
                 {
-                    if (reader.HasRows)
-                    {
-                        int hyphenCount = 0;
-                        string columnName = "";
-                        int columnCount = 0;
-                        // Print the column names.
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            if (reader.GetName(i).Equals(""))
-                            {
-                                // On some occasions, there may not be a column name returned, so we add one.
-                                columnName = "column" + i.ToString() + " | ";
-                            }
-                            else
-                            {
-                                columnName = reader.GetName(i) + " | ";
-                            }
-                            sqlString += columnName;
-                            hyphenCount += columnName.Length;
-                            columnCount += 1;
-                        }
-
-                        sqlString += "\n";
-                        sqlString += new String('-', hyphenCount);
-                        sqlString += "\n";
-
-                        // Retrieve data from the SQL data reader.
-                        while (reader.Read())
-                        {
-                            // Apply formatting if there is more than one column.
-                            if (columnCount <= 1)
-                            {
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    sqlString += reader.GetValue(i) + " | " + "\n";
-                                }
-                            }
-                            // Apply formatting if there is more than one column.
-                            else
-                            {
-
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    if (i == (columnCount - 1))
-                                    {
-                                        sqlString += reader.GetValue(i) + " | \n";
-                                    }
-                                    else
-                                    {
-                                        sqlString += reader.GetValue(i) + " | ";
-                                    }
-                                }
-                            }
-                        }
-
-                        // Remove the last few characters, wich consist of a space, pipe, space.
-                        sqlString = sqlString.Remove(sqlString.Length - 2);
-                    }
+                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
                 }
                 reader.Close();
             }
             catch (SqlException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.Errors[0].Message.ToString()));
+                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
             }
             catch (InvalidOperationException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
+                sqlStringBuilder.Append(_print.Error(ex.ToString()));
             }
-            return sqlString;
+            return sqlStringBuilder.ToString();
         }
 
         /// <summary>
@@ -596,85 +505,29 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteTunnelCustomQuery(SqlConnection con, string[] serverChain, string query)
         {
-            string sqlString = "";
+            StringBuilder sqlStringBuilder = new StringBuilder();
 
             try
             {
                 string finalCommand = GetSQLServerLinkQuery(serverChain, query);
                 SqlCommand command = new(finalCommand, con);
                 SqlDataReader reader = command.ExecuteReader();
+
                 using (reader)
                 {
-                    if (reader.HasRows)
-                    {
-                        int hyphenCount = 0;
-                        string columnName = "";
-                        int columnCount = 0;
-                        // Print the column names.
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            if (reader.GetName(i).Equals(""))
-                            {
-                                // On some occasions, there may not be a column name returned, so we add one.
-                                columnName = "column" + i.ToString() + " | ";
-                            }
-                            else
-                            {
-                                columnName = reader.GetName(i) + " | ";
-                            }
-                            sqlString += columnName;
-                            hyphenCount += columnName.Length;
-                            columnCount += 1;
-                        }
-
-                        sqlString += "\n";
-                        sqlString += new String('-', hyphenCount);
-                        sqlString += "\n";
-
-                        // Retrieve data from the SQL data reader.
-                        while (reader.Read())
-                        {
-                            // Apply formatting if there is more than one column.
-                            if (columnCount <= 1)
-                            {
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    sqlString += reader.GetValue(i) + " | " + "\n";
-                                }
-                            }
-                            // Apply formatting if there is more than one column.
-                            else
-                            {
-
-                                for (int i = 0; i < reader.FieldCount; i++)
-                                {
-                                    if (i == (columnCount - 1))
-                                    {
-                                        sqlString += reader.GetValue(i) + " | \n";
-                                    }
-                                    else
-                                    {
-                                        sqlString += reader.GetValue(i) + " | ";
-                                    }
-                                }
-                            }
-                        }
-
-                        // Remove the last few characters, wich consist of a space, pipe, space.
-                        sqlString = sqlString.Remove(sqlString.Length - 2);
-                    }
+                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
                 }
                 reader.Close();
             }
             catch (SqlException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.Errors[0].Message.ToString()));
+                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
             }
             catch (InvalidOperationException ex)
             {
-                sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
+                sqlStringBuilder.Append(_print.Error(ex.ToString()));
             }
-            return sqlString;
+            return sqlStringBuilder.ToString();
         }
 
 
