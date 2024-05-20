@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using SQLRecon.Utilities;
 
 namespace SQLRecon
@@ -27,18 +28,17 @@ namespace SQLRecon
                         // Go no further
                         return;
 
-                    if (parsedArgs.ContainsKey("auth"))
+                    if (parsedArgs.ContainsKey("enum"))
+                    {
+                        SetEnumerationType.EvaluateEnumerationType(parsedArgs);
+                    }
+                    else if (parsedArgs.Any())
                     {
                         // Set the authentication type, if conditions have passed, evaluate the arguments.
                         if (SetAuthenticationType.EvaluateAuthenticationType(parsedArgs))
                         {
                             ArgumentLogic.EvaluateTheArguments(parsedArgs);
                         }
-                            
-                    }
-                    else if (parsedArgs.ContainsKey("enum"))
-                    {
-                        SetEnumerationType.EvaluateEnumerationType(parsedArgs);
                     }
                     else
                     {
