@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Text;
 using SQLRecon.Utilities;
 
@@ -40,7 +41,6 @@ namespace SQLRecon.Modules
             {
                 sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
             }
-
             return sqlString;
         }
 
@@ -112,6 +112,42 @@ namespace SQLRecon.Modules
             }
 
             return sqlStringBuilder.ToString();
+        }
+
+
+        /// <summary>
+        /// Parses the query result and returns a list of values for the specified column.
+        /// </summary>
+        /// <param name="queryResult">The result of the SQL query as a string.</param>
+        /// <param name="columnName">The name of the column to extract values from.</param>
+        /// <returns>A list of values for the specified column.</returns>
+        public List<string> ExtractColumnValues(string queryResult, string columnName)
+        {
+            if (string.IsNullOrWhiteSpace(queryResult))
+            {
+                return new List<string>();
+            }
+
+            var lines = queryResult.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length < 2)
+            {
+                return new List<string>();
+            }
+
+            var headers = lines[0].Split('|', (char)StringSplitOptions.RemoveEmptyEntries)
+                                .Select(h => h.Trim())
+                                .ToList();
+            int columnIndex = headers.IndexOf(columnName);
+            if (columnIndex == -1)
+            {
+                return new List<string>();
+            }
+
+            return lines.Skip(2) // Skip the header and separator lines
+                        .Select(line => line.Split('|', (char)StringSplitOptions.RemoveEmptyEntries))
+                        .Where(columns => columns.Length > columnIndex)
+                        .Select(columns => columns[columnIndex].Trim())
+                        .ToList();
         }
 
 
@@ -354,28 +390,7 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteLinkedCustomQuery(SqlConnection con, string linkedSQLServer, string query)
         {
-            StringBuilder sqlStringBuilder = new StringBuilder();
-
-            try
-            {
-                SqlCommand command = new($"select * from openquery(\"{linkedSQLServer}\", '{query}')", con);
-                SqlDataReader reader = command.ExecuteReader();
-
-                using (reader)
-                {
-                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
-                }
-                reader.Close();
-            }
-            catch (SqlException ex)
-            {
-                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
-            }
-            catch (InvalidOperationException ex)
-            {
-                sqlStringBuilder.Append(_print.Error(ex.ToString()));
-            }
-            return sqlStringBuilder.ToString();
+            return ExecuteCustomQuery(con, $"SELECT * from openquery(\"{linkedSQLServer}\", '{query}')");
         }
 
 
@@ -395,28 +410,7 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteLinkedCustomQueryRpcExec(SqlConnection con, string linkedSqlServer, string query)
         {
-            StringBuilder sqlStringBuilder = new StringBuilder();
-
-            try
-            {
-                SqlCommand command = new($"EXECUTE ('{query}') AT {linkedSqlServer};", con);
-                SqlDataReader reader = command.ExecuteReader();
-
-                using (reader)
-                {
-                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
-                }
-                reader.Close();
-            }
-            catch (SqlException ex)
-            {
-                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
-            }
-            catch (InvalidOperationException ex)
-            {
-                sqlStringBuilder.Append(_print.Error(ex.ToString()));
-            }
-            return sqlStringBuilder.ToString();
+            return ExecuteCustomQuery(con, $"EXECUTE ('{query}') AT {linkedSqlServer};");
         }
 
         /// <summary>
@@ -505,29 +499,7 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         public string ExecuteTunnelCustomQuery(SqlConnection con, string[] serverChain, string query)
         {
-            StringBuilder sqlStringBuilder = new StringBuilder();
-
-            try
-            {
-                string finalCommand = GetSQLServerLinkQuery(serverChain, query);
-                SqlCommand command = new(finalCommand, con);
-                SqlDataReader reader = command.ExecuteReader();
-
-                using (reader)
-                {
-                    sqlStringBuilder.Append(ConvertToMarkdownTable(reader));
-                }
-                reader.Close();
-            }
-            catch (SqlException ex)
-            {
-                sqlStringBuilder.Append(_print.Error($"{ex.Errors[0].Message}"));
-            }
-            catch (InvalidOperationException ex)
-            {
-                sqlStringBuilder.Append(_print.Error(ex.ToString()));
-            }
-            return sqlStringBuilder.ToString();
+            return ExecuteCustomQuery(con, GetSQLServerLinkQuery(serverChain, query));
         }
 
 
