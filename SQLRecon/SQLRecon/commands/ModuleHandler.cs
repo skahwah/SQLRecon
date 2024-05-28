@@ -558,8 +558,8 @@ namespace SQLRecon.Commands
         public static void users()
         {
             string contextDescription = $"{_database} database on {_sqlServer}";
-            _print.Status($"Users in the {contextDescription}", true);
-            Console.WriteLine(RetrieveUsers(_connection, contextDescription));
+
+            RetrieveUsers(_connection, contextDescription);
         }
 
         /// <summary>
@@ -571,8 +571,7 @@ namespace SQLRecon.Commands
         public static void iusers()
         {
             string contextDescription = $"{_database} database on {_sqlServer} as '{_impersonate}'";
-            _print.Status($"Getting users in the {contextDescription}", true);
-            Console.WriteLine(RetrieveUsers(_connection, contextDescription, _impersonate));
+            RetrieveUsers(_connection, contextDescription, _impersonate);
         }
 
         /// <summary>
@@ -584,8 +583,7 @@ namespace SQLRecon.Commands
         public static void lusers()
         {
             string contextDescription = $"{_database} database on {_linkedSqlServer} via {_sqlServer}";
-            _print.Status($"Users in the {contextDescription}", true);
-            Console.WriteLine(RetrieveUsers(_connection, contextDescription, linkedSqlServer: _linkedSqlServer));
+            RetrieveUsers(_connection, contextDescription, linkedSqlServer: _linkedSqlServer);
         }
 
         /// <summary>
@@ -597,8 +595,7 @@ namespace SQLRecon.Commands
         public static void tusers()
         {
             string contextDescription = $"{_database} database from tunnel {_tunnelPath}";
-            _print.Status($"Users in the {contextDescription}", true);
-            Console.WriteLine(RetrieveUsers(_connection, contextDescription, tunnelSqlServers: _tunnelSqlServer));
+            RetrieveUsers(_connection, contextDescription, tunnelSqlServers: _tunnelSqlServer);
         }
 
 
@@ -711,7 +708,7 @@ namespace SQLRecon.Commands
         }
 
         // That is the users
-        private static string RetrieveUsers(
+        private static void RetrieveUsers(
             SqlConnection connection,
             string contextDescription,
             string impersonate = null,
@@ -722,12 +719,12 @@ namespace SQLRecon.Commands
                             "authentication_type_desc AS authentication_type " +
                             "FROM sys.database_principals " +
                             "WHERE type NOT IN ('A', 'R', 'X') AND sid IS NOT null AND name NOT LIKE '##%' " +
-                            "ORDER BY username;";
+                            "ORDER BY modify_date DESC;";
 
             string serverQuery = "SELECT name, type_desc, is_disabled, create_date, modify_date " +
                                 "FROM sys.server_principals " +
                                 "WHERE name NOT LIKE '##%' " +
-                                "ORDER BY name;";
+                                "ORDER BY modify_date DESC;";
 
             string dbUsers = (impersonate, linkedSqlServer, tunnelSqlServers) switch
             {
@@ -745,15 +742,13 @@ namespace SQLRecon.Commands
                 _ => _sqlQuery.ExecuteCustomQuery(connection, serverQuery)
             };
 
-            StringBuilder result = new();
-            result.AppendLine($"Users in the '{contextDescription}':");
-            result.AppendLine("Database Principals:");
-            result.AppendLine(dbUsers);
-            result.AppendLine("Server Principals:");
-            result.AppendLine(serverUsers);
-
-            return result.ToString();
+            _print.Status($"Users in the '{contextDescription}':", true);
+            _print.Nested("Database Principals:", true);
+            Console.WriteLine(dbUsers);
+            _print.Nested("Server Principals:", true);
+            Console.WriteLine(serverUsers);
         }
+
 
 
         /*
