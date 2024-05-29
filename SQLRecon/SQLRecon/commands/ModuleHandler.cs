@@ -780,9 +780,9 @@ namespace SQLRecon.Commands
 
             // Print user details
             _print.Status($"Users in the {contextDescription}:", true);
-            _print.Nested("Database Principals:", true);
+            _print.Nested("Database Principals:\n", true);
             Console.WriteLine(dbUsers);
-            _print.Nested("Server Principals:", true);
+            _print.Nested("Server Principals:\n", true);
             Console.WriteLine(serverUsers);
         }
 

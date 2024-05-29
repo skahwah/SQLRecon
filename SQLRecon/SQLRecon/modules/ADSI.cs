@@ -225,7 +225,7 @@ namespace SQLRecon.Modules
 
             if (!sqlOutput.Contains("1"))
             {
-                _print.Error("You need to enable CLR (lenableclr).", true);
+                _print.Error("You need to enable CLR (enableclr).", true);
                 // Go no futher.
                 return;
             }
