@@ -21,9 +21,9 @@ namespace SQLRecon.Utilities
             Console.WriteLine("Modules starting with '[*]' require sysadmin role or a similar privileged context");
 
             Console.WriteLine("");
-            Console.WriteLine("----------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("---------------------------------------------------------------------------------------");
             Console.WriteLine("\tEnumeration Modules (/e:, /enum:) do not require authentication to be supplied");
-            Console.WriteLine("----------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("---------------------------------------------------------------------------------------");
 
             Console.WriteLine("SqlSpns - Use the current user token to enumerate the current AD domain for MSSQL SPNs");
             var table = new TablePrinter("", "", "");
@@ -31,9 +31,9 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("--------------------------------------------------------------------------------------");
             Console.WriteLine("\tAuthentication Providers (/a:, /auth:) set the SQL server authentication type");
-            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("--------------------------------------------------------------------------------------");
 
             Console.WriteLine("WinToken - Use the current users token to authenticate against the SQL database");
             table = new TablePrinter("", "", "");
@@ -84,25 +84,25 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("----------------------------------------------------------------------------------------------------");
             Console.WriteLine("\tImpersonation (/i:, /iuser:) set the server user to impersonate on the first MS SQL instance");
-            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("----------------------------------------------------------------------------------------------------");
             table = new TablePrinter("", "", "");
             table.AddRow("\t/i:, /iuser:webapp01", "|", "Impersonate the server user 'webapp01' on /host MS SQL instance.");
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("--------------------------------------------------------------");
             Console.WriteLine("\tExecuting Commands Across Linked Servers (/l:, /link:)");
-            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("--------------------------------------------------------------");
             table = new TablePrinter("", "", "");
             table.AddRow("\t/l:, /link:SQL02,SQL03,SQL05", "|", "This sets up a tunnel through SQL02 to SQL05, where the final command is executed.");
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("------------------------------------------------------------------------------------------------");
             Console.WriteLine("\tModules (/m:, /module:) available for a single instance of SQL server or linked servers:");
-            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("------------------------------------------------------------------------------------------------");
 
             table = new TablePrinter("", "", "");
             table.AddRow("\tInfo", "|", "Show information about the SQL server");
@@ -135,9 +135,9 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("-----------------------------------------------------------------------------");
             Console.WriteLine("\tSCCM Modules (/m:, /module:) execute SCCM database-specific commands:");
-            Console.WriteLine("------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("-----------------------------------------------------------------------------");
 
             table = new TablePrinter("", "", "");
             table.AddRow("\tsDatabases", "|", "Display all SCCM databases");
