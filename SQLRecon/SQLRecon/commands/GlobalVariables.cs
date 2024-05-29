@@ -35,8 +35,7 @@ namespace SQLRecon.Commands
                     {"e", "enum"},
                     {"h", "host"},
                     {"i", "iuser"},
-                    {"l", "lhost"},
-                    {"t", "tunnel"},
+                    {"l", "link"},
                     {"m", "module"},
                     {"o", "option"},
                     {"p", "password"},
@@ -203,7 +202,7 @@ namespace SQLRecon.Commands
             }
         }
 
-        public string[] TunnelSqlServer
+        public string[] LinkChain
         {
             get
             {

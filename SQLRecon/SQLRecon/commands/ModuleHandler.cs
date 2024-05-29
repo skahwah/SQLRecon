@@ -28,13 +28,13 @@ namespace SQLRecon.Commands
         private static readonly string _arg1 = _gV.Arg1;
         private static readonly string _arg2 = _gV.Arg2;
         private static readonly string _database = _gV.Database;
-        private static readonly string[] _tunnelSqlServer = _gV.TunnelSqlServer;
+        private static readonly string[] _tunnelSqlServer = _gV.LinkChain;
         private static readonly string _tunnelPath = _gV.TunnelPath;
         private static readonly string _module = _gV.Module;
         private static readonly string _sqlServer = _gV.SqlServer;
         private static readonly string _impersonate = _gV.Impersonate;
 
-        private static readonly string contextDescription = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0 ? $"{_sqlServer} via tunnel {string.Join(" -> ", _tunnelSqlServer)}" :
+        private static readonly string contextDescription = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0 ? $"{_sqlServer} via linked servers {string.Join(" -> ", _tunnelSqlServer)}" :
                                         $"{_sqlServer}";
 
         private static string _query;

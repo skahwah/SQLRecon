@@ -6,7 +6,9 @@ namespace SQLRecon.Utilities
     {
 
         /// <summary>
-        /// The Help constructor prints the help menu to console.
+        /// The Help constructor prints the help menu to the console.
+        /// This includes details on how to use each module, the required and optional parameters,
+        /// and specific notes on features like impersonation and executing commands across linked servers.
         /// </summary>
         public Help()
         {
@@ -19,9 +21,9 @@ namespace SQLRecon.Utilities
             Console.WriteLine("Modules starting with '[*]' require sysadmin role or a similar privileged context");
 
             Console.WriteLine("");
-            Console.WriteLine("---------------------------------------------------------------------------------------");
-            Console.WriteLine("\tEnumeration Modules (/e:, /enum:) do not require authentication to be supplied:");
-            Console.WriteLine("---------------------------------------------------------------------------------------");
+            Console.WriteLine("----------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tEnumeration Modules (/e:, /enum:) do not require authentication to be supplied");
+            Console.WriteLine("----------------------------------------------------------------------------------------------------------------------");
 
             Console.WriteLine("SqlSpns - Use the current user token to enumerate the current AD domain for MSSQL SPNs");
             var table = new TablePrinter("", "", "");
@@ -29,9 +31,9 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("--------------------------------------------------------------------------------------");
-            Console.WriteLine("\tAuthentication Providers (/a:, /auth:) set the SQL server authentication type:");
-            Console.WriteLine("--------------------------------------------------------------------------------------");
+            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tAuthentication Providers (/a:, /auth:) set the SQL server authentication type");
+            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------");
 
             Console.WriteLine("WinToken - Use the current users token to authenticate against the SQL database");
             table = new TablePrinter("", "", "");
@@ -82,9 +84,25 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("----------------------------------------------------------------------------------------------");
-            Console.WriteLine("\tStandard Modules (/m:, /module:) are executed against a single instance of SQL server:");
-            Console.WriteLine("----------------------------------------------------------------------------------------------");
+            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tImpersonation (/i:, /iuser:) set the server user to impersonate on the first MS SQL instance");
+            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            table = new TablePrinter("", "", "");
+            table.AddRow("\t/i:, /iuser:webapp01", "|", "Impersonate the server user 'webapp01' on /host MS SQL instance.");
+            table.Print();
+
+            Console.WriteLine("");
+            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tExecuting Commands Across Linked Servers (/l:, /link:)");
+            Console.WriteLine("---------------------------------------------------------------------------------------------------------------------------------------------------------");
+            table = new TablePrinter("", "", "");
+            table.AddRow("\t/l:, /link:SQL02,SQL03,SQL05", "|", "This sets up a tunnel through SQL02 to SQL05, where the final command is executed.");
+            table.Print();
+
+            Console.WriteLine("");
+            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine("\tModules (/m:, /module:) available for a single instance of SQL server or linked servers:");
+            Console.WriteLine("-------------------------------------------------------------------------------------------------------------------------------------------");
 
             table = new TablePrinter("", "", "");
             table.AddRow("\tInfo", "|", "Show information about the SQL server");
@@ -117,85 +135,9 @@ namespace SQLRecon.Utilities
             table.Print();
 
             Console.WriteLine("");
-            Console.WriteLine("------------------------------------------------------------------------------------------");
-            Console.WriteLine("\tTunnel Modules (/m:, /module:) are executed on a chain of linked SQL server (/t:, /tunnel:):");
-            Console.WriteLine("------------------------------------------------------------------------------------------");
-
-            table = new TablePrinter("", "", "");
-            table.AddRow("\ttQuery /t:SQL01,SQL02,SQL03 /c:QUERY", "|", "Execute a SQL query");
-            table.AddRow("\ttWhoami /t:SQL01,SQL02,SQL03", "|", "Display what user you are logged in as, mapped as and what roles exist");
-            table.AddRow("\ttUsers /t:SQL01,SQL02,SQL03", "|", "Display what user accounts and groups can authenticate against the database");
-            table.AddRow("\ttImpersonate", "|", "Enumerate user accounts that can be impersonated at the end of the tunnel");
-            table.Print();
-
-            Console.WriteLine("");
-            Console.WriteLine("------------------------------------------------------------------------------------------");
-            Console.WriteLine("\tLinked Modules (/m:, /module:) are executed on a linked SQL server (/l:, /lhost:):");
-            Console.WriteLine("------------------------------------------------------------------------------------------");
-
-            table = new TablePrinter("", "", "");
-            table.AddRow("\tlQuery /l:LINKED_HOST /c:QUERY", "|", "Execute a SQL query");
-            table.AddRow("\tlWhoami /l:LINKED_HOST", "|", "Display what user you are logged in as, mapped as and what roles exist");
-            table.AddRow("\tlUsers /l:LINKED_HOST", "|", "Display what user accounts and groups can authenticate against the database");
-            table.AddRow("\tlDatabases /l:LINKED_HOST", "|", "Display all databases");
-            table.AddRow("\tlTables /l:LINKED_HOST /db:DATABASE", "|", "Display all tables in the supplied database");
-            table.AddRow("\tlColumns /l:LINKED_HOST /db:DATABASE /table:TABLE", "|", "Display all columns in the supplied database and table");
-            table.AddRow("\tlRows /l:LINKED_HOST /db:DATABASE /table:TABLE", "|", "Display the number of rows in the supplied database and table");
-            table.AddRow("\tlSearch /l:LINKED_HOST /db:DATABASE /keyword:KEYWORD", "|", "Search column names in the supplied table of the database you are connected to");
-            table.AddRow("\tlSmb /l:LINKED_HOST /rhost:UNC_PATH", "|", "Capture NetNTLMv2 hash");
-            table.AddRow("\tlImpersonate", "|", "Enumerate user accounts that can be impersonated on a linked SQL server");
-            table.AddRow("\tlLinks /l:LINKED_HOST", "|", "Enumerate linked SQL servers on a linked SQL server");
-            table.AddRow("\tlCheckRpc /l:LINKED_HOST", "|", "Obtain a list of linked servers on the linked server and their RPC status");
-            table.AddRow("\t[*] lEnableXp /l:LINKED_HOST", "|", "Enable xp_cmdshell");
-            table.AddRow("\t[*] lDisableXp /l:LINKED_HOST", "|", "Disable xp_cmdshell");
-            table.AddRow("\t[*] lXpCmd /l:LINKED_HOST /c:COMMAND", "|", "Execute a system command using xp_cmdshell");
-            table.AddRow("\t[*] lEnableOle /l:LINKED_HOST", "|", "Enable OLE automation procedures");
-            table.AddRow("\t[*] lDisableOle /l:LINKED_HOST", "|", "Disable OLE automation procedures");
-            table.AddRow("\t[*] lOleCmd /l:LINKED_HOST /c:COMMAND", "|", "Execute a system command using OLE automation procedures");
-            table.AddRow("\t[*] lEnableClr /l:LINKED_HOST", "|", "Enable CLR integration");
-            table.AddRow("\t[*] lDisableClr /l:LINKED_HOST", "|", "Disable CLR integration");
-            table.AddRow("\t[*] lClr /l:LINKED_HOST /dll:DLL /function:FUNCTION", "|", "Load and execute a .NET assembly in a custom stored procedure");
-            table.AddRow("\t[*] lAgentStatus /l:LINKED_HOST", "|", "Display if SQL agent is running and obtain agent jobs");
-            table.AddRow("\t[*] lAgentCmd /l:LINKED_HOST /c:COMMAND", "|", "Execute a system command using agent jobs");
-            table.AddRow("\t[*] lAdsi /l:LINKED_HOST /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT", "|", "Obtain cleartext ADSI credentials from a double-linked ADSI server");
-            table.Print();
-
-            Console.WriteLine("");
-            Console.WriteLine("--------------------------------------------------------------------------------------------------------------------------------------");
-            Console.WriteLine("\tImpersonation Modules (/m:, /module:) are executed against a single instance of SQL server using impersonation (/i:, /iuser:):");
-            Console.WriteLine("--------------------------------------------------------------------------------------------------------------------------------------");
-
-            table = new TablePrinter("", "", "");
-            table.AddRow("\tiQuery /i:IMPERSONATE_USER /c:QUERY", "|", "Execute a SQL query");
-            table.AddRow("\tiWhoami /i:IMPERSONATE_USER", "|", "Display what user you are logged in as, mapped as and what roles exist");
-            table.AddRow("\tiUsers /i:IMPERSONATE_USER", "|", "Display what user accounts and groups can authenticate against the database");
-            table.AddRow("\tiDatabases /i:IMPERSONATE_USER", "|", "Display all databases");
-            table.AddRow("\tiTables /i:IMPERSONATE_USER /db:DATABASE", "|", "Display all tables in the supplied database");
-            table.AddRow("\tiColumns /i:IMPERSONATE_USER /db:DATABASE /table:TABLE", "|", "Show all columns in the database and table you specify");
-            table.AddRow("\tiRows /i:IMPERSONATE_USER /db:DATABASE /table:TABLE", "|", "Display the number of rows in the database and table you specify");
-            table.AddRow("\tiSearch /i:IMPERSONATE_USER /keyword:KEYWORD", "|", "Search column names in the supplied table of the database you are connected to");
-            table.AddRow("\tiLinks /i:IMPERSONATE_USER", "|", "Enumerate linked SQL servers");
-            table.AddRow("\tiCheckRpc /i:IMPERSONATE_USER", "|", "Obtain a list of linked servers and their RPC status");
-            table.AddRow("\t[*] iEnableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST", "|", "Enable RPC and RPC out on a linked server");
-            table.AddRow("\t[*] iDisableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST", "|", "Disable RPC and RPC out on a linked server");
-            table.AddRow("\t[*] iEnableXp /i:IMPERSONATE_USER", "|", "Enable xp_cmdshell");
-            table.AddRow("\t[*] iDisableXp /i:IMPERSONATE_USER", "|", "Disable xp_cmdshell");
-            table.AddRow("\t[*] iXpCmd /i:IMPERSONATE_USER /c:COMMAND", "|", "Execute a system command using xp_cmdshell");
-            table.AddRow("\t[*] iEnableOle /i:IMPERSONATE_USER", "|", "Enable OLE automation procedures");
-            table.AddRow("\t[*] iDisableOle /i:IMPERSONATE_USER", "|", "Disable OLE automation procedures");
-            table.AddRow("\t[*] iOleCmd /i:IMPERSONATE_USER /c:COMMAND", "|", "Execute a system command using OLE automation procedures");
-            table.AddRow("\t[*] iEnableClr /i:IMPERSONATE_USER", "|", "Enable CLR integration");
-            table.AddRow("\t[*] iDisableClr /i:IMPERSONATE_USER", "|", "Disable CLR integration");
-            table.AddRow("\t[*] iClr /i:IMPERSONATE_USER /dll:DLL /function:FUNCTION", "|", "Load and execute a .NET assembly in a custom stored procedure");
-            table.AddRow("\t[*] iAgentStatus /i:IMPERSONATE_USER", "|", "Display if SQL agent is running and obtain agent jobs");
-            table.AddRow("\t[*] iAgentCmd /i:IMPERSONATE_USER /c:COMMAND", "|", "Execute a system command using agent jobs");
-            table.AddRow("\t[*] iAdsi /i:IMPERSONATE_USER /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT", "|", "Obtain cleartext ADSI credentials from a linked ADSI server");
-            table.Print();
-
-            Console.WriteLine("");
-            Console.WriteLine("-----------------------------------------------------------------------------");
+            Console.WriteLine("------------------------------------------------------------------------------------------------------------");
             Console.WriteLine("\tSCCM Modules (/m:, /module:) execute SCCM database-specific commands:");
-            Console.WriteLine("-----------------------------------------------------------------------------");
+            Console.WriteLine("------------------------------------------------------------------------------------------------------------");
 
             table = new TablePrinter("", "", "");
             table.AddRow("\tsDatabases", "|", "Display all SCCM databases");

@@ -107,10 +107,10 @@ namespace SQLRecon.Utilities
                 _gV.Impersonate = argDict["iuser"];
             }
 
-            if (argDict.ContainsKey("tunnel"))
+            if (argDict.ContainsKey("link"))
             {
                 // Get the tunnel chain, checking both possible keys.
-                string tunnelChain = argDict.ContainsKey("tunnel") ? argDict["tunnel"] : argDict["t"];
+                string tunnelChain = argDict.ContainsKey("link") ? argDict["link"] : argDict["l"];
 
 
                 // Split the tunnel chain into an array of server names.
@@ -124,17 +124,17 @@ namespace SQLRecon.Utilities
                 }
 
                 _gV.TunnelPath = string.Join(" -> ", serverChain);
-                _print.Status($"Setting tunnel path: {_gV.TunnelPath}", true);
+                _print.Status($"Setting link path: {_gV.TunnelPath}", true);
 
                 if (serverChain.Length == 0)
                 {
-                    _print.Error("Invalid tunnel SQL server chain provided.", true);
+                    _print.Error("Invalid link SQL server chain provided.", true);
                     // Go no further.
                     return;
                 }
 
                 _gV.Module = argDict["module"].ToLower();
-                _gV.TunnelSqlServer = serverChain;  // Assign the array to the global variable.
+                _gV.LinkChain = serverChain;  // Assign the array to the global variable.
             }
 
             if (_standardArgumentsAndOptionCount.TryGetValue(moduleName, out int standardArgumentCount))

@@ -29,11 +29,30 @@ SQLRecon is a Microsoft SQL Server toolkit that is designed for offensive reconn
 
 Check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website.
 
-# Overview
+## Overview
 
 You can download a copy of SQLRecon from the [releases](https://github.com/skahwah/SQLRecon/releases) page. Alternatively, feel free to compile the solution yourself. This should be as straight forward as cloning the repo, double clicking the solution file and building.
 
-## Enumeration
+## Features
+
+`SQLRecon` is equipped with powerful capabilities designed for sophisticated reconnaissance and post-exploitation within Microsoft SQL Server environments:
+- **Active Directory Enumeration**: Discover Server Principal Names (SPNs) associated with SQL Servers to identify potential targets.
+- **Linked Server Operations**: Executes commands across linked SQL Server chains for lateral movement.
+- **User Impersonation**: Impersonates SQL Server users to elevate privileges and access restricted data.
+- **Multiple Authentication Providers**:
+    - **Windows Integrated Authentication**: Uses the current user's token.
+    - **Active Directory Credentials**: Uses specific domain credentials.
+    - **Local SQL Credentials**: Connects using SQL Server usernames and passwords.
+    - **Advanced SQL Server Interaction**:
+        - **Query Execution**: Executes custom SQL queries.
+        - **Schema Retrieval**: Fetches database schema information.
+        - **System Procedure Enablement**: Enables procedures like `xp_cmdshell`.
+- **SCCM Reconnaissance**: Targets Microsoft SCCM environments to extract configuration details.
+
+
+## Getting Started
+
+### Enumeration
 
 SQLRecon supports enumerating Active Directory for Server Principal Names (SPNs) that are associated with Microsoft SQL Server.
 
@@ -127,83 +146,6 @@ CheckRpc                                                 | Obtain a list of link
 [*] AgentStatus                                          | Display if SQL agent is running and obtain agent jobs
 [*] AgentCmd /c:COMMAND                                  | Execute a system command using agent jobs
 [*] Adsi /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a linked ADSI server
-```
-
-## Linked Modules
-
-Linked modules are executed on a linked Microsoft SQL server. 
-
-All linked modules have the following minimum requirements:
-- A linked SQL server must be specified (`/l:, /lhost:`).
-- A linked module must be specified (`/m:, /module:`). 
-
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
-
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/4.-Linked-Modules">wiki</a>. 
-
-```
-lQuery /l:LINKED_HOST /c:QUERY                                           | Execute a SQL query
-lWhoami /l:LINKED_HOST                                                   | Display what user you are logged in as, mapped as and what roles exist
-lUsers /l:LINKED_HOST                                                    | Display what user accounts and groups can authenticate against the database
-lDatabases /l:LINKED_HOST                                                | Display all databases
-lTables /l:LINKED_HOST /db:DATABASE                                      | Display all tables in the supplied database
-lColumns /l:LINKED_HOST /db:DATABASE /table:TABLE                        | Display all columns in the supplied database and table
-lRows /l:LINKED_HOST /db:DATABASE /table:TABLE                           | Display the number of rows in the supplied database and table
-lSearch /l:LINKED_HOST /db:DATABASE /keyword:KEYWORD                     | Search column names in the supplied table of the database you are connected to
-lSmb /l:LINKED_HOST /rhost:UNC_PATH                                      | Capture NetNTLMv2 hash
-lLinks /l:LINKED_HOST                                                    | Enumerate linked SQL servers on a linked SQL server
-lCheckRpc /l:LINKED_HOST                                                 | Obtain a list of linked servers on the linked server and their RPC status
-[*] lEnableXp /l:LINKED_HOST                                             | Enable xp_cmdshell
-[*] lDisableXp /l:LINKED_HOST                                            | Disable xp_cmdshell
-[*] lXpCmd /l:LINKED_HOST /c:COMMAND                                     | Execute a system command using xp_cmdshell
-[*] lEnableOle /l:LINKED_HOST                                            | Enable OLE automation procedures
-[*] lDisableOle /l:LINKED_HOST                                           | Disable OLE automation procedures
-[*] lOleCmd /l:LINKED_HOST /c:COMMAND                                    | Execute a system command using OLE automation procedures
-[*] lEnableClr /l:LINKED_HOST                                            | Enable CLR integration
-[*] lDisableClr /l:LINKED_HOST                                           | Disable CLR integration
-[*] lClr /l:LINKED_HOST /dll:DLL /function:FUNCTION                      | Load and execute a .NET assembly in a custom stored procedure
-[*] lAgentStatus /l:LINKED_HOST                                          | Display if SQL agent is running and obtain agent jobs
-[*] lAgentCmd /l:LINKED_HOST /c:COMMAND                                  | Execute a system command using agent jobs
-[*] lAdsi /l:LINKED_HOST /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a double-linked ADSI server
-```
-
-## Impersonation Modules
-
-Impersonation modules are executed against a single instance of Microsoft SQL server, under the context of an impersonated SQL user.
-
-All impersonation modules have the following minimum requirements:
-- An impersonation user must be specified (`/i:, /iuser:`).
-- An impersonation module must be specified (`/m:, /module:`).
-
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
-
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/5.-Impersonation-Modules">wiki</a>. 
-
-```
-iQuery /i:IMPERSONATE_USER /c:QUERY                                           | Execute a SQL query
-iWhoami /i:IMPERSONATE_USER                                                   | Display what user you are logged in as, mapped as and what roles exist
-iUsers /i:IMPERSONATE_USER                                                    | Display what user accounts and groups can authenticate against the database
-iDatabases /i:IMPERSONATE_USER                                                | Display all databases
-iTables /i:IMPERSONATE_USER /db:DATABASE                                      | Display all tables in the supplied database
-iColumns /i:IMPERSONATE_USER /db:DATABASE /table:TABLE                        | Show all columns in the database and table you specify
-iRows /i:IMPERSONATE_USER /db:DATABASE /table:TABLE                           | Display the number of rows in the database and table you specify
-iSearch /i:IMPERSONATE_USER /keyword:KEYWORD                                  | Search column names in the supplied table of the database you are connected to
-iLinks /i:IMPERSONATE_USER                                                    | Enumerate linked SQL servers
-iCheckRpc /i:IMPERSONATE_USER                                                 | Obtain a list of linked servers and their RPC status
-[*] iEnableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST                         | Enable RPC and RPC out on a linked server
-[*] iDisableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST                        | Disable RPC and RPC out on a linked server
-[*] iEnableXp /i:IMPERSONATE_USER                                             | Enable xp_cmdshell
-[*] iDisableXp /i:IMPERSONATE_USER                                            | Disable xp_cmdshell
-[*] iXpCmd /i:IMPERSONATE_USER /c:COMMAND                                     | Execute a system command using xp_cmdshell
-[*] iEnableOle /i:IMPERSONATE_USER                                            | Enable OLE automation procedures
-[*] iDisableOle /i:IMPERSONATE_USER                                           | Disable OLE automation procedures
-[*] iOleCmd /i:IMPERSONATE_USER /c:COMMAND                                    | Execute a system command using OLE automation procedures
-[*] iEnableClr /i:IMPERSONATE_USER                                            | Enable CLR integration
-[*] iDisableClr /i:IMPERSONATE_USER                                           | Disable CLR integration
-[*] iClr /i:IMPERSONATE_USER /dll:DLL /function:FUNCTION                      | Load and execute a .NET assembly in a custom stored procedure
-[*] iAgentStatus /i:IMPERSONATE_USER                                          | Display if SQL agent is running and obtain agent jobs
-[*] iAgentCmd /i:IMPERSONATE_USER /c:COMMAND                                  | Execute a system command using agent jobs
-[*] iAdsi /i:IMPERSONATE_USER /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a linked ADSI server
 ```
 
 ## SCCM Modules
