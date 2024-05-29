@@ -300,7 +300,7 @@ If you are interested in extending SQLRecon, refer to the write up in the <a hre
 
 * Renamed `EnableDisable.cs` to `ConfigureOptions.cs`
 * Overhauled advanced option configurations.
-* Implemented RPC error checking wherever `ExecuteLinkedCustomQueryRpcExec` is called.
+* Implemented RPC error checking wherever `ExecuteTunnelCustomQueryRpcExec` is called.
 </details>
 
 <details>
@@ -363,7 +363,7 @@ If you are interested in extending SQLRecon, refer to the write up in the <a hre
 
 * Various bug fixed in the SCCM modules.
 * Organized the help menu using a table.
-* Improved the output provided by `ExecuteLinkedCustomQueryRpcExec`.
+* Improved the output provided by `ExecuteTunnelCustomQueryRpcExec`.
 * Improved code commenting through out.
 * Improved consistency of method names across command execution functions.
 * Improved modularity through better use of object oriented programming.

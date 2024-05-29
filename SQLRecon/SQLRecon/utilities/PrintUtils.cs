@@ -2,28 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 
+
 namespace SQLRecon.Utilities
 {
     internal class PrintUtils
     {
-        /// <summary>
-        /// The Debug method adds a debug message to the beginning
-        /// of a provided string.
-        /// </summary>
-        /// <param name="sqlOutput"></param>
-        /// <param name="print">If set to true, write the string to console,
-        /// otherwise, return the modified string.</param>
-        /// <returns></returns>
-        public string Debug(string sqlOutput, bool print = false)
+        private static readonly SQLRecon.Commands.GlobalVariables _gV = new();
+        private static readonly bool _debug = _gV.Debug;
+
+        public void Debug(string sqlOutput)
         {
-            if (print == true)
+            if (_debug == true)
             {
-                Console.WriteLine(string.Format("[*] DEBUG: {0}", sqlOutput));
-                return "";
-            }
-            else
-            {
-                return string.Format("[*] DEBUG: {0}", sqlOutput);
+                Console.WriteLine(string.Format("[i] {0}", sqlOutput));
             }
         }
 

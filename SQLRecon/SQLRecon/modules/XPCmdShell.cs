@@ -1,4 +1,5 @@
-﻿using System.Data.SqlClient;
+﻿using System;
+using System.Data.SqlClient;
 using SQLRecon.Utilities;
 
 namespace SQLRecon.Modules
@@ -10,79 +11,66 @@ namespace SQLRecon.Modules
         private static readonly SqlQuery _sqlQuery = new();
 
         /// <summary>
-        /// The Standard method executes an arbitrary command on 
-        /// a remoe SQL server using xp_cmdshell.
+        /// The Standard method executes an arbitrary command on
+        /// a remote SQL server using xp_cmdshell.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="cmd"></param>
         public void Standard(SqlConnection con, string cmd)
         {
-
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "xp_cmdshell");
-
-            if (!sqlOutput.Contains("1"))
+            try
             {
-                _print.Error("You need to enable xp_cmdshell (enablexp).", true);
-                // Go no futher.
+                // First check to see if xp_cmdshell is enabled.
+                string sqlOutput = _config.ModuleStatus(con, "xp_cmdshell");
+
+                if (!sqlOutput.Contains("1"))
+                {
+                    _print.Error("You need to enable xp_cmdshell (enablexp).", true);
+                    return;
+                }
+
+                sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "EXEC xp_cmdshell '" + cmd + "';");
+                _printStatus(sqlOutput);
                 return;
             }
-
-            sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "EXEC xp_cmdshell '" + cmd + "';");
-
-            _printStatus(sqlOutput);
+            catch (Exception ex)
+            {
+                _print.Error($"Failed to execute command using xp_cmdshell: {ex.Message}", true);
+                return;
+            }
         }
 
         /// <summary>
-        /// The Impersonate method executes an arbitrary command on 
-        /// a remote SQL server using xp_cmdshell with impersonation.
+        /// The Tunnel method executes an arbitrary command on
+        /// a remote tunneled SQL server using xp_cmdshell.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="cmd"></param>
-        /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string cmd, string impersonate)
+        /// <param name="tunnelSqlServers"></param>
+        public void Tunnel(SqlConnection con, string cmd, string[] tunnelSqlServers)
         {
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "xp_cmdshell", impersonate);
-
-            if (!sqlOutput.Contains("1"))
+            try
             {
-                _print.Error("You need to enable xp_cmdshell (ienablexp).", true);
-                // Go no futher.
+                // First check to see if xp_cmdshell is enabled.
+                string sqlOutput = _config.TunnelModuleStatus(con, "xp_cmdshell", tunnelSqlServers);
+                if (!sqlOutput.Contains("1"))
+                {
+                    _print.Error("You need to enable xp_cmdshell (enablexp).", true);
+                    return;
+                }
+
+                sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, tunnelSqlServers, $"select 1; exec master..xp_cmdshell '{cmd}';");
+                _printStatus(sqlOutput);
+            }
+            catch (Exception ex)
+            {
+                _print.Error($"Failed to execute command on tunneled server using xp_cmdshell: {ex.Message}", true);
                 return;
             }
-
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate, "EXEC xp_cmdshell '" + cmd + "';");
-
-            _printStatus(sqlOutput);
         }
 
         /// <summary>
-        /// The Linked method executes an arbitrary command on 
-        /// a remote linked SQL server using xp_cmdshell.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="cmd"></param>
-        /// <param name="linkedSqlServer"></param>
-        public void Linked(SqlConnection con, string cmd, string linkedSqlServer)
-        {
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.LinkedModuleStatus(con, "xp_cmdshell", linkedSqlServer);
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable xp_cmdshell (lenablexp).", true);
-                // Go no futher.
-                return;
-            }
-
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select 1; exec master..xp_cmdshell ''" + cmd + "''");
-
-            _printStatus(sqlOutput);
-        }
-
-        /// <summary>
-        /// The _printStatus method will display the status of the 
+        /// The _printStatus method will display the status of the
         /// xp_cmdshell command execution.
         /// </summary>
         /// <param name="sqlOutput"></param>

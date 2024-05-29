@@ -25,6 +25,9 @@ namespace SQLRecon.Modules
 
             try
             {
+                // Log the query being executed
+                _print.Debug($"Executing following SQL query: {query}");
+
                 SqlCommand command = new(query, con);
                 SqlDataReader reader = command.ExecuteReader();
                 while (reader.Read() == true)
@@ -41,6 +44,7 @@ namespace SQLRecon.Modules
             {
                 sqlString += _print.Error(string.Format("{0}.", ex.ToString()));
             }
+
             return sqlString;
         }
 
@@ -150,9 +154,6 @@ namespace SQLRecon.Modules
                         .ToList();
         }
 
-
-
-
         /// <summary>
         /// The ExecuteCustomQuery method is used to execute a query against a SQL
         /// server. This method expects that the output returns multiple lines.
@@ -166,6 +167,10 @@ namespace SQLRecon.Modules
 
             try
             {
+                // Log the query being executed
+                _print.Debug($"Executing following SQL query: {query}");
+
+                // Execute the main query
                 SqlCommand command = new(query, con);
                 SqlDataReader reader = command.ExecuteReader();
 
@@ -185,9 +190,6 @@ namespace SQLRecon.Modules
             }
             return sqlStringBuilder.ToString();
         }
-
-
-
 
 
         /// <summary>
@@ -237,37 +239,33 @@ namespace SQLRecon.Modules
             return impersonateResult != null;
         }
 
-
         /// <summary>
-        /// The ExecuteImpersonationQuery method is used to execute
-        /// a query against a SQL server using impersonation. It first checks if the user has
-        /// the necessary permissions or is a sysadmin. Error handling
-        /// is performed to ensure that the impersonated user exists and can be impersonated
-        /// before executing the query. This method expects that the output only returns one value
-        /// on a single line and does not account for multi-line returns.
+        /// Checks if the current user can impersonate another user in a tunnel of linked SQL Servers.
         /// </summary>
-        /// <param name="con">The SQL connection.</param>
-        /// <param name="impersonate">The user to impersonate.</param>
-        /// <param name="query">The SQL query to execute.</param>
-        /// <returns>The query result or an error message.</returns>
-        public string ExecuteImpersonationQuery(SqlConnection con, string impersonate, string query)
+        /// <param name="con">The SQL connection to use for executing the check.</param>
+        /// <param name="impersonate">The username of the user to check impersonation permissions for.</param>
+        /// <param name="tunnelSqlServers">The chain of linked SQL servers.</param>
+        /// <returns>True if the current user can impersonate the specified user in the tunnel of servers, false otherwise.</returns>
+        public bool CanImpersonateTunnel(SqlConnection con, string impersonate, string[] tunnelSqlServers)
         {
-            // Use the CanImpersonate method to check if the current user can impersonate the specified user.
-            if (CanImpersonate(con, impersonate))
-            {
-                // Construct and execute the query with impersonation.
-                string impersonationQuery = $"EXECUTE AS LOGIN = '{impersonate}'; {query}; REVERT;";
-                string result = ExecuteQuery(con, impersonationQuery);
+            // Check if the current user is a sysadmin in the last server in the tunnel
+            string sysAdminCheckQuery = $"SELECT IS_SRVROLEMEMBER('sysadmin');";
+            string isSysAdmin = ExecuteTunnelCustomQuery(con, tunnelSqlServers, sysAdminCheckQuery).Trim();
 
-                return result.ToLower().Contains("cannot execute as the server principal")
-                    ? _print.Error($"The {impersonate} login cannot be impersonated.")
-                    : result;
-            }
-            else
+            if (isSysAdmin.Contains("1"))
             {
-                // The user cannot be impersonated or the current user does not have sufficient privileges.
-                return _print.Error($"The {impersonate} login cannot be impersonated or you do not have sufficient privileges.");
+                return true;
             }
+
+            // Check if the specific user can be impersonated in the last server in the tunnel
+            string impersonateCheckQuery = $"SELECT 1 FROM sys.server_permissions a " +
+                                           $"INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id " +
+                                           $"WHERE a.permission_name = 'IMPERSONATE' AND b.name = '{impersonate.Replace("'", "''")}'";
+
+            string impersonateCheckResult = ExecuteTunnelCustomQuery(con, tunnelSqlServers, impersonateCheckQuery).Trim();
+
+            // If any result is returned, the user can be impersonated
+            return impersonateCheckResult.Contains("1");
         }
 
         /// <summary>
@@ -292,8 +290,6 @@ namespace SQLRecon.Modules
         /// </remarks>
         public void Impersonate(SqlConnection con, string impersonate = null)
         {
-            _print.Status($"Trying to impersonate '{impersonate}'", true);
-            // Use the CanImpersonate method to check if the current user can impersonate the specified user.
             if (CanImpersonate(con, impersonate))
             {
                 // Construct and execute the query with impersonation.
@@ -307,7 +303,7 @@ namespace SQLRecon.Modules
                 else
                 {
                     _print.Success($"Impersonated server user '{ExecuteQuery(con, "SELECT SYSTEM_USER;")}'", true);
-                    _print.Success($"Mapped to the username '{ExecuteQuery(con, "SELECT USER_NAME();")}'", true);
+                    _print.Nested($"Mapped to the username '{ExecuteQuery(con, "SELECT USER_NAME();")}'", true);
                 }
             }
             else
@@ -316,50 +312,88 @@ namespace SQLRecon.Modules
             }
         }
 
-
         /// <summary>
-        /// The ExecuteImpersonationCustomQuery method is used to execute
-        /// a query against a SQL server using impersonation. Error handling
-        /// is performed to ensure that the impersonated user exists before
-        /// executing the query. This method expects that the output returns multiple lines.
+        /// Constructs a nested OPENQUERY statement for querying linked SQL servers in a chain.
         /// </summary>
-        /// <param name="con">The SQL connection.</param>
-        /// <param name="impersonate">The user to impersonate.</param>
-        /// <param name="query">The SQL query to execute.</param>
-        /// <returns>The query result or an error message.</returns>
-        public string ExecuteImpersonationCustomQuery(SqlConnection con, string impersonate, string query)
+        /// <param name="path">An array of server names representing the path of linked servers to traverse. '0' in front of them is mandatory to make the query work properly.</param>
+        /// <param name="sql">The SQL query to be executed at the final server in the linked server path.</param>
+        /// <param name="ticks">A counter used to double the single quotes for each level of nesting.</param>
+        /// <returns>A string containing the nested OPENQUERY statement.</returns>
+        /// <example>
+        /// Calling GetNestedOpenQueryForLinkedServers(new[] { "0", "a", "b", "c", "d" }, "SELECT * FROM SomeTable WHERE 'a'='a'") will produce:
+        /// select * from openquery("a", 'select * from openquery("b", ''select * from openquery("c", ''''select * from openquery("d", ''''''SELECT * FROM SomeTable WHERE ''a''=''''a'''''''''')''')'')')
+        /// </example>
+        public static string GetNestedOpenQueryForLinkedServers(string[] path, string sql, int ticks = 0)
+
         {
-            // Use the CanImpersonate method to check if the current user can impersonate the specified user.
-            if (CanImpersonate(con, impersonate))
+            if (path.Length <= 1)
             {
-                // If the user can be impersonated, construct and execute the query with impersonation.
-                string impersonationQuery = $"EXECUTE AS LOGIN = '{impersonate}'; {query}; REVERT;";
-                return ExecuteCustomQuery(con, impersonationQuery);
+                // Base case: when there's only one server or none, just return the SQL with appropriately doubled quotes.
+                return sql.Replace("'", new string('\'', (int)Math.Pow(2, ticks)));
             }
             else
             {
-                // If the user cannot be impersonated, return an error.
-                return _print.Error($"The {impersonate} login cannot be impersonated or you do not have sufficient privileges.");
+                var stringBuilder = new StringBuilder();
+                stringBuilder.Append("select * from openquery(\"");
+                stringBuilder.Append(path[1]);  // Taking the next server in the path.
+                stringBuilder.Append("\", ");
+                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
+
+                // Recursively build the nested query for the rest of the path.
+                string[] subPath = new string[path.Length - 1];
+                Array.Copy(path, 1, subPath, 0, path.Length - 1);
+
+                stringBuilder.Append(GetNestedOpenQueryForLinkedServers(subPath, sql, ticks + 1)); // Recursive call with incremented ticks.
+                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
+                stringBuilder.Append(")");
+
+                string result = stringBuilder.ToString();
+                return result;
             }
         }
 
+        /// <summary>
+        /// The method dynamically builds the nested SQL command based on the number of servers listed in the serverChain.
+        /// It constructs the query by iterating over the server list from the end towards the beginning (after skipping the "0" index).
+        /// Each server in the chain adds another layer of EXEC ('...') AT [ServerName] around the existing query.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="sql"></param>
+        /// <returns></returns>
+        public static string GetSQLServerRpcConfigQuery(string[] path, string sql)
+        {
+            string currentQuery = sql;
+
+            // Start from the end of the array and skip the first element ("0")
+            for (int i = path.Length - 1; i > 0; i--)
+            {
+                string server = path[i];
+                // Double single quotes to escape them in the SQL string
+                currentQuery = $"EXEC ('{currentQuery.Replace("'", "''")}') AT {server}";
+            }
+
+            return currentQuery;
+        }
+
+
 
         /// <summary>
-        /// The ExecuteLinkedQuery method is used to execute a query against a
-        /// linked SQL server using openquery. This method expects that the output
+        /// The ExecuteTunnelQuery method is used to execute a query against a chain of
+        /// linked SQL servers using openquery. This method expects that the output
         /// only returns one value on a single line and does not account for multi-line returns.
         /// </summary>
         /// <param name="con"></param>
-        /// <param name="linkedSQLServer"></param>
+        /// <param name="serverChain"></param>
         /// <param name="query"></param>
         /// <returns></returns>
-        public string ExecuteLinkedQuery(SqlConnection con, String linkedSQLServer, String query)
+        public string ExecuteTunnelQuery(SqlConnection con, string[] serverChain, string query)
         {
             string sqlString = "";
 
             try
             {
-                SqlCommand command = new("select * from openquery(\"" + linkedSQLServer + "\", '" + query + "')", con);
+                string finalCommand = GetNestedOpenQueryForLinkedServers(serverChain, query);
+                SqlCommand command = new(finalCommand, con);
                 SqlDataReader reader = command.ExecuteReader();
                 while (reader.Read() == true)
                 {
@@ -379,95 +413,15 @@ namespace SQLRecon.Modules
             return sqlString;
         }
 
-        /// <summary>
-        /// The ExecuteLinkedCustomQuery method is used to execute a query against a
-        /// linked SQL server using openquery. This method expects that the output
-        /// returns multiple lines.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="linkedSQLServer"></param>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        public string ExecuteLinkedCustomQuery(SqlConnection con, string linkedSQLServer, string query)
+        public string ExecuteTunnelQuery(SqlConnection con, string server, string query)
         {
-            return ExecuteCustomQuery(con, $"SELECT * from openquery(\"{linkedSQLServer}\", '{query}')");
-        }
-
-
-
-        /// <summary>
-        /// The ExecuteLinkedCustomQueryRpcExec method is used to execute a
-        /// query against a linked SQL server using 'EXECUTE (QUERY) AT HOSTNAME'.
-        /// This is due to some stored procedures not returning accurate results
-        /// when using openquery. This method expects that the output returns
-        /// muliple lines.
-        /// IMPORTANT: Any queries passed into this function need to have their
-        /// single quotes escaped. RPC needs to be enabled on the remote host.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="linkedSqlServer"></param>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        public string ExecuteLinkedCustomQueryRpcExec(SqlConnection con, string linkedSqlServer, string query)
-        {
-            return ExecuteCustomQuery(con, $"EXECUTE ('{query}') AT {linkedSqlServer};");
-        }
-
-        /// <summary>
-        /// Constructs a nested OPENQUERY statement for querying linked SQL servers in a chain.
-        /// </summary>
-        /// <param name="path">An array of server names representing the path of linked servers to traverse. 0 in front of them is mandatory to make the query work properly.</param>
-        /// <param name="sql">The SQL query to be executed at the final server in the linked server path.</param>
-        /// <param name="ticks">A counter used to double the single quotes for each level of nesting.</param>
-        /// <returns>A string containing the nested OPENQUERY statement.</returns>
-        /// <example>
-        /// Calling GetSQLServerLinkQuery(new[] { "0", "a", "b", "c", "d" }, "SELECT * FROM SomeTable WHERE 'a'='a'") will produce:
-        /// select * from openquery("a", 'select * from openquery("b", ''select * from openquery("c", ''''select * from openquery("d", ''''''SELECT * FROM SomeTable WHERE ''a''=''''a'''''''''')''')'')')
-        /// </example>
-        public static string GetSQLServerLinkQuery(string[] path, string sql, int ticks = 0)
-        {
-            if (path.Length <= 1)
-            {
-                // Base case: when there's only one server or none, just return the SQL with appropriately doubled quotes.
-                return sql.Replace("'", new string('\'', (int)Math.Pow(2, ticks)));
-            }
-            else
-            {
-                var stringBuilder = new StringBuilder();
-                stringBuilder.Append("select * from openquery(\"");
-                stringBuilder.Append(path[1]);  // Taking the next server in the path.
-                stringBuilder.Append("\", ");
-                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
-
-                // Recursively build the nested query for the rest of the path.
-                string[] subPath = new string[path.Length - 1];
-                Array.Copy(path, 1, subPath, 0, path.Length - 1);
-
-                stringBuilder.Append(GetSQLServerLinkQuery(subPath, sql, ticks + 1)); // Recursive call with incremented ticks.
-                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
-                stringBuilder.Append(")");
-
-                return stringBuilder.ToString();
-            }
-        }
-
-
-        /// <summary>
-        /// The ExecuteTunnelQuery method is used to execute a query against a chain of
-        /// linked SQL servers using openquery. This method expects that the output
-        /// only returns one value on a single line and does not account for multi-line returns.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="serverChain"></param>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        public string ExecuteTunnelQuery(SqlConnection con, string[] serverChain, string query)
-        {
+            // Constructs the server chain array with "0" as the first element and the provided server as the second
+            string[] serverChain = new string[] { "0", server };
             string sqlString = "";
 
             try
             {
-                string finalCommand = GetSQLServerLinkQuery(serverChain, query);
+                string finalCommand = GetNestedOpenQueryForLinkedServers(serverChain, query);
                 SqlCommand command = new(finalCommand, con);
                 SqlDataReader reader = command.ExecuteReader();
                 while (reader.Read() == true)
@@ -489,18 +443,43 @@ namespace SQLRecon.Modules
         }
 
         /// <summary>
-        /// The ExecuteTunnelCustomQuery method is used to execute a query against a chain of
-        /// linked SQL servers using openquery. This method expects that the output
-        /// returns multiple lines.
+        /// Executes a custom query that is sent through a tunnel of linked SQL servers specified as an array.
         /// </summary>
-        /// <param name="con"></param>
-        /// <param name="serverChain"></param>
-        /// <param name="query"></param>
-        /// <returns></returns>
+        /// <param name="con">The SQL connection to use for executing the query.</param>
+        /// <param name="serverChain">An array of server names representing the path of linked servers to traverse.</param>
+        /// <param name="query">The SQL query to be executed at the final server in the linked server path.</param>
+        /// <returns>A string containing the results of the executed query.</returns>
         public string ExecuteTunnelCustomQuery(SqlConnection con, string[] serverChain, string query)
         {
-            return ExecuteCustomQuery(con, GetSQLServerLinkQuery(serverChain, query));
+            return ExecuteCustomQuery(con, GetNestedOpenQueryForLinkedServers(serverChain, query));
         }
+
+        /// <summary>
+        /// Executes a custom query that is sent through a tunnel of linked SQL servers specified as a single string.
+        /// </summary>
+        /// <param name="con">The SQL connection to use for executing the query.</param>
+        /// <param name="serverChain">A single server name representing the path of a linked server to traverse.</param>
+        /// <param name="query">The SQL query to be executed at the final server in the linked server path.</param>
+        /// <returns>A string containing the results of the executed query.</returns>
+        public string ExecuteTunnelCustomQuery(SqlConnection con, string server, string query)
+        {
+            // Constructs the server chain array with "0" as the first element and the provided server as the second
+            string[] serverChain = new string[] { "0", server };
+            return ExecuteCustomQuery(con, GetNestedOpenQueryForLinkedServers(serverChain, query));
+        }
+
+        public string ExecuteTunnelCustomQueryRpcExec(SqlConnection con, string[] serverChain, string query)
+        {
+            return ExecuteCustomQuery(con, GetSQLServerRpcConfigQuery(serverChain, query));
+        }
+
+        public string ExecuteTunnelCustomQueryRpcExec(SqlConnection con, string server, string query)
+        {
+            // Constructs the server chain array with "0" as the first element and the provided server as the second
+            string[] serverChain = new string[] { "0", server };
+            return ExecuteCustomQuery(con, GetSQLServerRpcConfigQuery(serverChain, query));
+        }
+
 
 
     }

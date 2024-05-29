@@ -60,6 +60,7 @@ namespace SQLRecon.Utilities
 
                 _print.Status($"Connecting to MS SQL instance using {_gV.AuthenticationType} on {_gV.SqlServer}:{_gV.Port} for {_gV.Database}.", true);
 
+
                 switch (authType)
                 {
                     case "wintoken":

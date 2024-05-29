@@ -108,7 +108,6 @@ namespace SQLRecon.Utilities
             try
             {
                 connection.Open();
-                _print.Status("Connection information", true);
                 _print.Nested($"DataSource: {connection.DataSource}", true);
                 _print.Nested($"Database: {connection.Database}", true);
                 _print.Nested($"ServerVersion: {connection.ServerVersion}", true);

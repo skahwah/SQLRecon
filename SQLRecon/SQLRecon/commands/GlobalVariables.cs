@@ -13,7 +13,6 @@ namespace SQLRecon.Commands
         private static string _database = "master";
         private static string _domain;
         private static string _impersonate;
-        private static string _linkedSqlServer;
         private static string[] _tunnelSqlServer;
         private static string _tunnelPath;
         private static string _module;
@@ -21,6 +20,8 @@ namespace SQLRecon.Commands
         private static string _port = "1433";
         private static string _sqlServer;
         private static string _username;
+
+        private static bool _debug = false;
 
         public Dictionary<string, string> CoreCommands
         {
@@ -39,14 +40,15 @@ namespace SQLRecon.Commands
                     {"m", "module"},
                     {"o", "option"},
                     {"p", "password"},
-                    {"u", "username"}
+                    {"u", "username"},
+                    {"debug", "debug"},
                 };
             }
         }
 
         public Dictionary<string, int> StandardArgumentsAndOptionCount
         {
-            get 
+            get
             {
                 return new Dictionary<string, int>()
                 {
@@ -81,88 +83,6 @@ namespace SQLRecon.Commands
             }
         }
 
-        public Dictionary<string, int> ImpersonationArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"iagentstatus", 1},
-                    {"icheckrpc", 1},
-                    {"idatabases", 1},
-                    {"idisableclr", 1},
-                    {"idisableole", 1},
-                    {"idisablexp", 1},
-                    {"ienableclr", 1},
-                    {"ienableole", 1},
-                    {"ienablexp", 1},
-                    {"ilinks", 1},
-                    {"iusers", 1},
-                    {"iwhoami", 1},
-                    {"iagentcmd", 2},
-                    {"idisablerpc", 2},
-                    {"ienablerpc", 2},
-                    {"iolecmd", 2},
-                    {"iquery", 2},
-                    {"isearch", 2},
-                    {"itables", 2},
-                    {"ixpcmd", 2},
-                    {"iadsi", 3},
-                    {"iclr", 3},
-                    {"icolumns", 3},
-                    {"irows", 3}
-                };
-            }
-        }
-
-        public Dictionary<string, int> LinkedArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"lagentstatus", 1},
-                    {"lcheckrpc", 1},
-                    {"ldatabases", 1},
-                    {"ldisableclr", 1},
-                    {"ldisableole", 1},
-                    {"ldisablexp", 1},
-                    {"lenableclr", 1},
-                    {"lenableole", 1},
-                    {"lenablexp", 1},
-                    {"limpersonate", 1},
-                    {"llinks", 1},
-                    {"lusers", 1},
-                    {"lwhoami", 1},
-                    {"lagentcmd", 2},
-                    {"lolecmd", 2},
-                    {"lquery", 2},
-                    {"lsmb", 2},
-                    {"ltables", 2},
-                    {"lxpcmd", 2},
-                    {"ladsi", 3},
-                    {"lclr", 3},
-                    {"lcolumns", 3},
-                    {"lsearch", 3},
-                    {"lrows", 3}
-                };
-            }
-        }
-
-        public Dictionary<string, int> TunnelArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"timpersonate", 1},
-                    {"tusers", 1},
-                    {"twhoami", 1},
-                    {"tquery", 2},
-                };
-            }
-        }
-
         public Dictionary<string, int> SccmArgumentsAndOptionCount
         {
             get
@@ -179,6 +99,18 @@ namespace SQLRecon.Commands
                     {"saddadmin", 2},
                     {"sremoveadmin", 2}
                 };
+            }
+        }
+
+        public bool Debug
+        {
+            get
+            {
+                return _debug;
+            }
+            set
+            {
+                _debug = value;
             }
         }
 
@@ -270,17 +202,6 @@ namespace SQLRecon.Commands
                 _impersonate = value;
             }
         }
-        public string LinkedSqlServer
-        {
-            get
-            {
-                return _linkedSqlServer;
-            }
-            set
-            {
-                _linkedSqlServer = value;
-            }
-        }
 
         public string[] TunnelSqlServer
         {
@@ -305,7 +226,7 @@ namespace SQLRecon.Commands
                 _module = value;
             }
         }
-        
+
         public string Password
         {
             get
