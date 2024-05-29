@@ -58,6 +58,8 @@ namespace SQLRecon.Utilities
                 string serverInfo = $"{_gV.SqlServer},{_gV.Port}";
                 string authType = _gV.AuthenticationType.ToLower();
 
+                _print.Status($"Connecting to MS SQL instance using {_gV.AuthenticationType} on {_gV.SqlServer}:{_gV.Port} for {_gV.Database}.", true);
+
                 switch (authType)
                 {
                     case "wintoken":
@@ -78,11 +80,6 @@ namespace SQLRecon.Utilities
                     default:
                         _print.Warning("Invalid authentication type specified.", true);
                         return null;
-                }
-
-                if (connection != null)
-                {
-                    _print.Success($"SQL connection created using {_gV.AuthenticationType} on {_gV.SqlServer}:{_gV.Port} for {_gV.Database}.", true);
                 }
                 return connection;
             }

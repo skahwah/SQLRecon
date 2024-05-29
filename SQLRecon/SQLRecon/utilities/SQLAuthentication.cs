@@ -37,7 +37,7 @@ namespace SQLRecon.Utilities
             {
                 _connectionString = string.Format("Server={0}; Database={1}; Integrated Security=True;", sqlServer, database);
                 return _authenticateToDatabase(_connectionString, string.Format("{0}\\{1}", domain, user), sqlServer);
-            } 
+            }
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace SQLRecon.Utilities
         }
 
         /// <summary>
-        /// The AzureADAuthentication method uses cleartext Azure AD domain credentials 
+        /// The AzureADAuthentication method uses cleartext Azure AD domain credentials
         /// to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
@@ -75,7 +75,7 @@ namespace SQLRecon.Utilities
         }
 
         /// <summary>
-        /// The AzureLocationAuthentication method uses cleartext Azure local database credentials 
+        /// The AzureLocationAuthentication method uses cleartext Azure local database credentials
         /// to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
@@ -103,11 +103,20 @@ namespace SQLRecon.Utilities
         /// </returns>
         private SqlConnection _authenticateToDatabase(string conString, string user, string sqlServer)
         {
-            SqlConnection connection = new SqlConnection(conString);
+            SqlConnection connection = new SqlConnection($"{conString} Connect Timeout=4;");
 
             try
             {
                 connection.Open();
+                _print.Status("Connection information", true);
+                _print.Nested($"DataSource: {connection.DataSource}", true);
+                _print.Nested($"Database: {connection.Database}", true);
+                _print.Nested($"ServerVersion: {connection.ServerVersion}", true);
+                _print.Nested($"State: {connection.State}", true);
+                _print.Nested($"WorkstationId: {connection.WorkstationId}", true);
+                _print.Nested($"PacketSize: {connection.PacketSize}", true);
+                _print.Nested($"ClientConnectionId: {connection.ClientConnectionId}", true);
+                _print.Nested($"ApplicationName: {connection.WorkstationId}", true);
                 return connection;
             }
 
@@ -125,7 +134,7 @@ namespace SQLRecon.Utilities
                 {
                     _print.Error("Unable to load adal.sql or adalsql.dll.", true);
                 }
-                else 
+                else
                 {
                     _print.Error(string.Format("{0} can not log in to {1}.", user, sqlServer.Replace(",", ":")), true);
                     Console.WriteLine(ex);
