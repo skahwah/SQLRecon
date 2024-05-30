@@ -764,11 +764,6 @@ namespace SQLRecon.Commands
                                 "WHERE name NOT LIKE '##%' " +
                                 "ORDER BY modify_date DESC;";
 
-            // Context description adjusts based on connection type
-            string contextDescription = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0
-                ? $"{_database} database from tunnel {_tunnelPath}"
-                : $"{_database} database on {_sqlServer}";
-
             // Execute queries based on connection type
             string dbUsers = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0
                 ? _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, dbQuery)
@@ -779,7 +774,7 @@ namespace SQLRecon.Commands
                 : _sqlQuery.ExecuteCustomQuery(_connection, serverQuery);
 
             // Print user details
-            _print.Status($"Users in the {contextDescription}:", true);
+            _print.Success($"Retrieved users on {contextDescription}:", true);
             _print.Nested("Database Principals:\n", true);
             Console.WriteLine(dbUsers);
             _print.Nested("Server Principals:\n", true);
