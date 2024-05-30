@@ -63,7 +63,7 @@ SqlSpns - Use the current user token to enumerate the current AD domain for MSSQ
         /d:, /domain: | (OPTIONAL) NETBIOS name (DOMAIN) or FQDN of domain (DOMAIN.COM)
 ```
 
-## Authentication Providers
+### Authentication Providers
 
 SQLRecon supports a diverse set of authentication providers to enable interacting with a Microsoft SQL Server. An authentication provider must be supplied (`/a:, /auth:`).
 
@@ -110,7 +110,7 @@ SQLRecon connects to the `master` database by default, however, this can be chan
 
 Please note that the `AzureAD` authentication provider reqires that the Azure Active Directory Authentication Library (ADAL) or Microsoft Authentication Library (MSAL) exists on the system SQLRecon is executed from. This is for Azure Active Directory authentication and authorization functionality.
 
-## Standard Modules
+### Standard Modules
 
 Standard modules are executed against a single instance of Microsoft SQL server. Standard modules must be passed into the module flag (`/m:, /module:`).
 
