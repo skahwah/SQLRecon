@@ -34,10 +34,21 @@ namespace SQLRecon.Commands
         private static readonly string _sqlServer = _gV.SqlServer;
         private static readonly string _impersonate = _gV.Impersonate;
 
-        private static readonly string contextDescription = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0 ? $"{_sqlServer} via linked servers {string.Join(" -> ", _tunnelSqlServer)}" :
-                                        $"{_sqlServer}";
-
         private static string _query;
+
+        private static string GetContextDescription()
+        {
+            // Check if there is a tunnel and display the last server in the chain
+            if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
+            {
+                string lastServer = _tunnelSqlServer.LastOrDefault();
+                return $"{lastServer} (via linked servers {string.Join(" -> ", _tunnelSqlServer)})";
+            }
+            return _sqlServer; // If no tunnel, display the primary server
+        }
+
+        // Set the context description
+        private static readonly string contextDescription = GetContextDescription();
 
         /// <summary>
         /// The ExecuteModule method will match the user supplied module in the
