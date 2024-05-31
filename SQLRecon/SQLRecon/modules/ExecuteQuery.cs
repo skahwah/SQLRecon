@@ -331,25 +331,22 @@ namespace SQLRecon.Modules
                 // Base case: when there's only one server or none, just return the SQL with appropriately doubled quotes.
                 return sql.Replace("'", new string('\'', (int)Math.Pow(2, ticks)));
             }
-            else
-            {
-                var stringBuilder = new StringBuilder();
-                stringBuilder.Append("select * from openquery(\"");
-                stringBuilder.Append(path[1]);  // Taking the next server in the path.
-                stringBuilder.Append("\", ");
-                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
 
-                // Recursively build the nested query for the rest of the path.
-                string[] subPath = new string[path.Length - 1];
-                Array.Copy(path, 1, subPath, 0, path.Length - 1);
+            var stringBuilder = new StringBuilder();
+            stringBuilder.Append("select * from openquery(\"");
+            stringBuilder.Append(path[1]);  // Taking the next server in the path.
+            stringBuilder.Append("\", ");
+            stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
 
-                stringBuilder.Append(GetNestedOpenQueryForLinkedServers(subPath, sql, ticks + 1)); // Recursive call with incremented ticks.
-                stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
-                stringBuilder.Append(")");
+            // Recursively build the nested query for the rest of the path.
+            string[] subPath = new string[path.Length - 1];
+            Array.Copy(path, 1, subPath, 0, path.Length - 1);
 
-                string result = stringBuilder.ToString();
-                return result;
-            }
+            stringBuilder.Append(GetNestedOpenQueryForLinkedServers(subPath, sql, ticks + 1)); // Recursive call with incremented ticks.
+            stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
+            stringBuilder.Append(")");
+
+            return stringBuilder.ToString();
         }
 
         /// <summary>
