@@ -34,6 +34,8 @@ namespace SQLRecon.Modules
                 return;
             }
 
+            _print.Status("CLR is correctly enabled", true);
+
             // Get the SHA-512 hash for the DLL and convert the DLL to bytes
             string[] dllArr = _convertDLLToSQLBytes(dll);
             string dllHash = dllArr[0];
@@ -55,7 +57,7 @@ namespace SQLRecon.Modules
 
             if (sqlOutput.Contains("System.Byte[]"))
             {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
+                _print.Warning("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
                 _sqlQuery.ExecuteQuery(con, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
             }
 
@@ -167,18 +169,23 @@ namespace SQLRecon.Modules
             {
                 _print.Error(string.Format("You need to enable RPC for {1} on {0} (enablerpc -o {1}).",
                     sqlServer, linkedSqlServer), true);
-                // Go no futher.
                 return;
             }
 
+            _print.Status($"RPC is correctly enabled for {sqlServer} on {linkedSqlServer}", true);
+
             // Then check to see if clr integration is enabled.
             sqlOutput = _config.LinkedModuleStatus(con, "clr enabled", linkedSqlServer);
+
             if (!sqlOutput.Contains("1"))
             {
                 _print.Error("You need to enable CLR (lenableclr).", true);
                 // Go no futher.
                 return;
             }
+
+            _print.Status($"CLR is correctly enabled on {linkedSqlServer}", true);
+
 
             // Get the SHA-512 hash for the DLL and convert the DLL to bytes.
             string[] dllArr = _convertDLLToSQLBytes(dll);
@@ -202,7 +209,7 @@ namespace SQLRecon.Modules
 
             if (sqlOutput.Contains("System.Byte[]"))
             {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
+                _print.Warning("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
                 _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer,
                     "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
             }

@@ -228,6 +228,29 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
+        /// The enablerpc method is used against the initial SQL server to
+        /// enable 'rpc out' on a specified SQL server.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// <summary>
+        public static void enablerpc()
+        {
+
+            _print.Status($"Enabling RPC on {contextDescription}", true);
+
+            // Determine the context and execute the appropriate method
+            if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
+            {
+                _config.TunnelModuleToggle(_connection, "rpc", "true", _tunnelSqlServer, _sqlServer);
+            }
+            else
+            {
+                _config.ModuleToggle(_connection, "rpc", "true", _sqlServer);
+            }
+
+        }
+
+        /// <summary>
         /// The clr method is used against single instances or tunneled SQL servers to
         /// execute custom .NET CLR assemblies.
         /// This method needs to be public as reflection is used to match the

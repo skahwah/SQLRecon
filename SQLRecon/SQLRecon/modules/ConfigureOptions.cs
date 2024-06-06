@@ -82,7 +82,7 @@ namespace SQLRecon.Modules
                 // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
                 // is either a 1 (enabled) or 0 (disabled). Return the value.
                 return _sqlQuery.ExecuteTunnelQuery(con, linkedSqlServer,
-                "SELECT value FROM sys.configurations WHERE name = ''" + module + "'';");
+                $"SELECT value FROM sys.configurations WHERE name = '{module}';");
         }
 
         /// <summary>
@@ -94,8 +94,7 @@ namespace SQLRecon.Modules
         /// ole automation procedures, and xp_cmdshell. Special logic has been included for rpc.</param>
         /// <param name="value">Enable (1) or disable (0).</param>
         /// <param name="sqlServer"></param>
-        /// <param name="impersonate"></param>
-        public void ModuleToggle(SqlConnection con, string module, string value, string sqlServer, string impersonate = "null")
+        public void ModuleToggle(SqlConnection con, string module, string value, string sqlServer)
         {
             try
             {
@@ -111,10 +110,10 @@ namespace SQLRecon.Modules
                         ? "1"
                         : "0";
 
-                    sqlOutput = ModuleStatus(con, module, "null", sqlServer);
+                    sqlOutput = ModuleStatus(con, module, sqlServer);
                     _printModuleStatus(sqlOutput, module, value, sqlServer);
 
-                    sqlOutput = _moduleStatus(con, module, "null", sqlServer);
+                    sqlOutput = _moduleStatus(con, module, sqlServer);
                     if (!sqlOutput.ToLower().Contains("not have permission")){
                         Console.WriteLine(sqlOutput);
                         return;
@@ -127,7 +126,7 @@ namespace SQLRecon.Modules
                     sqlOutput = ModuleStatus(con, module);
                     _printModuleStatus(sqlOutput, module, value, sqlServer);
 
-                    sqlOutput = _moduleStatus(con, module, impersonate, sqlServer);
+                    sqlOutput = _moduleStatus(con, module, sqlServer);
                     if (!sqlOutput.ToLower().Contains("not have permission")){
                         Console.WriteLine(sqlOutput);
                         return ;
@@ -158,13 +157,13 @@ namespace SQLRecon.Modules
             try
             {
                 // First check to see if rpc is enabled.
-                string sqlOutput = ModuleStatus(con, "rpc", "null", linkedSqlServer);
+                string sqlOutput = ModuleStatus(con, "rpc", linkedSqlServer);
 
                 if (!sqlOutput.Contains("1"))
                 {
                     _print.Error(string.Format("You need to enable RPC for {0} on {1} (enablerpc -o {0}).",
                         linkedSqlServer, sqlServer), true);
-                    Console.WriteLine(_moduleStatus(con, "rpc", "null", linkedSqlServer));
+                    Console.WriteLine(_moduleStatus(con, "rpc", linkedSqlServer));
                     return;
                 }
 
@@ -232,46 +231,24 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="con"></param>
         /// <param name="module"></param>
-        /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
         /// <param name="sqlServer">Optional</param>
         /// <returns></returns>
-        private string _moduleStatus(SqlConnection con, string module, string impersonate = "null", string sqlServer = "null")
+        private string _moduleStatus(SqlConnection con, string module, string sqlServer = "null")
         {
-            if (impersonate.Equals("null"))
+            if (module.Equals("rpc"))
             {
-                if (module.Equals("rpc"))
-                {
-                    // Obtain all SQL server names where RPC is enabled if the name matches supplied SQL server.
-                    return _sqlQuery.ExecuteCustomQuery(con,
-                    "SELECT name, is_rpc_out_enabled FROM sys.servers WHERE lower(name) like '%" + sqlServer.ToLower() + "%';");
+                // Obtain all SQL server names where RPC is enabled.
+                // Returns 1 for enabled if the supplied sqlServer exists.
+                // Returns 0 for disabled if the supplied sqlServer does not exist.
+                return _sqlQuery.ExecuteCustomQuery(con,
+                "SELECT name, is_rpc_out_enabled FROM sys.servers WHERE lower(name) like '%" + sqlServer.ToLower() + "%';");
+            }
 
-                }
-                else
-                {
-                    // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
-                    // Return the name and value.
-                    return _sqlQuery.ExecuteCustomQuery(con, "EXEC sp_configure 'show advanced options', 1; " +
-                    "SELECT name, value FROM sys.configurations WHERE name = '" + module + "';");
-                }
-            }
-            else
-            {
-                if (module.Equals("rpc"))
-                {
-                    // Obtain all SQL server names where RPC is enabled.
-                    // Returns 1 for enabled if the supplied sqlServer exists.
-                    // Returns 0 for disabled if the supplied sqlServer does not exist.
-                    return _sqlQuery.ExecuteCustomQuery(con,
-                    "SELECT name, is_rpc_out_enabled FROM sys.servers WHERE lower(name) like '%" + sqlServer.ToLower() + "%';");
-                }
-                else
-                {
-                    // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
-                    // is either a 1 (enabled) or 2 (disabled). Return the value.
-                    return _sqlQuery.ExecuteCustomQuery(con,
-                    "SELECT name, value FROM sys.configurations WHERE name = '" + module + "';");
-                }
-            }
+            // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
+            // is either a 1 (enabled) or 2 (disabled). Return the value.
+            return _sqlQuery.ExecuteCustomQuery(con,
+            $"SELECT name, value FROM sys.configurations WHERE name = '{module}';");
+
         }
 
         /// <summary>
@@ -288,7 +265,7 @@ namespace SQLRecon.Modules
             // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
             // is either a 1 (enabled) or 2 (disabled). Return the name and value.
             return _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
-            "SELECT name, value FROM sys.configurations WHERE name = ''" + module + "'';");
+            $"SELECT name, value FROM sys.configurations WHERE name = '{module}';");
         }
 
 
