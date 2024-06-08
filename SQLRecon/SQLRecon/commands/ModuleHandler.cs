@@ -140,16 +140,12 @@ namespace SQLRecon.Commands
                 if (_tunnelSqlServer.Length == 2) {
                     string linkedServer = _tunnelSqlServer.Last();
                     _adsi.Linked(_connection, _arg1, _arg2, linkedServer, _sqlServer);
-                    _print.Success($"Successfully obtained ADSI credentials for '{_arg1}' on {linkedServer}", true);
-                } else {
-                    _print.Warning($"Not implemented for multiple hops!", true);
+                    return ;
                 }
+                _print.Warning($"Not implemented for multiple hops!", true);
+                return;
             }
-            else
-            {
-                _adsi.Standard(_connection, _arg1, _arg2);
-                _print.Success($"Successfully obtained ADSI credentials for '{_arg1}' on {contextDescription}", true);
-            }
+            _adsi.Standard(_connection, _arg1, _arg2);
         }
 
         /// <summary>
@@ -168,15 +164,12 @@ namespace SQLRecon.Commands
                 if (_tunnelSqlServer.Length == 2) {
                     string linkedServer = _tunnelSqlServer.Last();
                     _agentJobs.Linked(_connection, linkedServer, "PowerShell", _arg1, _sqlServer);
-                } else {
-                    _print.Warning($"Not implemented for multiple hops!", true);
                 }
+                _print.Warning($"Not implemented for multiple hops!", true);
+                return;
 
             }
-            else
-            {
-                _agentJobs.Standard(_connection, _sqlServer, _arg1);
-            }
+            _agentJobs.Standard(_connection, _sqlServer, _arg1);
         }
 
         /// <summary>
@@ -195,15 +188,13 @@ namespace SQLRecon.Commands
                 if (_tunnelSqlServer.Length == 2) {
                     string linkedServer = _tunnelSqlServer.Last();
                     _agentJobs.GetLinkedAgentStatusAndJobs(_connection, linkedServer);
-                } else {
-                    _print.Warning($"Not implemented for multiple hops!", true);
+                    return;
                 }
+                _print.Warning($"Not implemented for multiple hops!", true);
+                return;
 
             }
-            else
-            {
-                _agentJobs.GetAgentStatusAndJobs(_connection, _sqlServer);
-            }
+            _agentJobs.GetAgentStatusAndJobs(_connection, _sqlServer);
         }
 
         /// <summary>
@@ -215,16 +206,17 @@ namespace SQLRecon.Commands
         public static void checkrpc()
         {
             _print.Status($"The following SQL servers can have RPC configured via {contextDescription}", true);
+
             _query = "SELECT name, is_rpc_out_enabled FROM sys.servers";
 
             if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
             {
                 _print.IsOutputEmpty(_sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query), true);
+                return;
             }
-            else
-            {
-                _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
-            }
+
+            _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
+
         }
 
         /// <summary>
@@ -235,19 +227,20 @@ namespace SQLRecon.Commands
         /// <summary>
         public static void enablerpc()
         {
+            _print.Status($"Enabling RPC on {_arg1}", true);
+            _config.ModuleToggle(_connection, "rpc", "true", _arg1);
+        }
 
-            _print.Status($"Enabling RPC on {contextDescription}", true);
-
-            // Determine the context and execute the appropriate method
-            if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
-            {
-                _config.TunnelModuleToggle(_connection, "rpc", "true", _tunnelSqlServer, _sqlServer);
-            }
-            else
-            {
-                _config.ModuleToggle(_connection, "rpc", "true", _sqlServer);
-            }
-
+        /// <summary>
+        /// The disablerpc method is used against the initial SQL server to
+        /// disable 'rpc out' on a specified SQL server.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void disablerpc()
+        {
+            _print.Status($"Disabling RPC on {_arg1}", true);
+            _config.ModuleToggle(_connection, "rpc", "true", _arg1);
         }
 
         /// <summary>
@@ -287,18 +280,15 @@ namespace SQLRecon.Commands
         {
             _print.Status($"Displaying columns from table '{_arg2}' in '{_arg1}' on {contextDescription}", true);
 
-            _query = "use " + _arg1 + ";" +
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-                    "WHERE TABLE_NAME = '" + _arg2 + "' ORDER BY ORDINAL_POSITION;";
+            _query = $"use {_arg1}; SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{_arg2}' ORDER BY ORDINAL_POSITION;";
 
             if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
             {
-                _print.IsOutputEmpty(_sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query), true);
+                _print.IsOutputEmpty(_sqlQuery.ExecuteTunnelCustomQueryRpcExec(_connection, _tunnelSqlServer, _query), true);
+                return;
             }
-            else
-            {
-                _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
-            }
+            _print.IsOutputEmpty(_sqlQuery.ExecuteCustomQuery(_connection, _query), true);
+
         }
 
         /// <summary>
@@ -358,24 +348,7 @@ namespace SQLRecon.Commands
             }
         }
 
-        /// <summary>
-        /// The disablerpc method is used against the initial SQL server to
-        /// disable 'rpc out' on a specified SQL server.
-        /// This method needs to be public as reflection is used to match the
-        /// module name that is supplied via command line, to the actual method name.
-        /// </summary>
-        public static void disablerpc()
-        {
-            _print.Status($"Disabling RPC on {contextDescription}", true);
-            if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
-            {
-                _config.TunnelModuleToggle(_connection, "rpc", "false", _tunnelSqlServer, _sqlServer);
-            }
-            else
-            {
-                _config.ModuleToggle(_connection, "rpc", "false", _arg1);
-            }
-        }
+
 
         /// <summary>
         /// The disablexp method is used against single instances or tunneled SQL servers to
@@ -573,11 +546,9 @@ namespace SQLRecon.Commands
             if (_tunnelSqlServer != null && _tunnelSqlServer.Length > 0)
             {
                 _ole.Tunnel(_connection, _arg1, _tunnelSqlServer, _sqlServer);
+                return;
             }
-            else
-            {
-                _ole.Standard(_connection, _arg1);
-            }
+            _ole.Standard(_connection, _arg1);
         }
 
 
@@ -613,7 +584,7 @@ namespace SQLRecon.Commands
 
             // Execute the query based on connection type and print the result
             string result = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0
-                ? _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query)
+                ? _sqlQuery.ExecuteTunnelCustomQueryRpcExec(_connection, _tunnelSqlServer, _query)
                 : _sqlQuery.ExecuteCustomQuery(_connection, _query);
 
             _print.IsOutputEmpty(result, true);
@@ -637,7 +608,7 @@ namespace SQLRecon.Commands
 
             // Execute the query based on connection type and print the result
             string result = _tunnelSqlServer != null && _tunnelSqlServer.Length > 0
-                ? _sqlQuery.ExecuteTunnelCustomQuery(_connection, _tunnelSqlServer, _query)
+                ? _sqlQuery.ExecuteTunnelCustomQueryRpcExec(_connection, _tunnelSqlServer, _query)
                 : _sqlQuery.ExecuteCustomQuery(_connection, _query);
 
             _print.IsOutputEmpty(result, true);

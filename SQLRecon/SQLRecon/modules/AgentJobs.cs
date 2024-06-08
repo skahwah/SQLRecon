@@ -16,31 +16,23 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
-        /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
-        public void GetAgentStatusAndJobs(SqlConnection con, string sqlServer, string impersonate = "null")
+        public void GetAgentStatusAndJobs(SqlConnection con, string sqlServer)
         {
             // Identify if the SQL agent is running on the SQL server, use impersonation
-            // if specified, if not, check the status of the agent normally.
-            string sqlOutput = (impersonate.Equals("null"))
-                ? _agentStatus(con, sqlServer)
-                : _agentStatus(con, sqlServer, impersonate);
+            string sqlOutput = _agentStatus(con, sqlServer);
 
             if (sqlOutput.Contains("1"))
             {
                 _print.Status(string.Format("SQL agent is running on {0}.", sqlServer), true);
 
                 // If the SQL agent is running on the SQL server, retrieve the jobs,
-                // Use impersonation if specified, if not, retrieve the jobs normally.
-                sqlOutput = (impersonate.Equals("null"))
-                    ? _getAgentjobs(con, sqlServer)
-                    : _getAgentjobs(con, sqlServer, impersonate);
+                sqlOutput = _getAgentjobs(con, sqlServer);
 
                 Console.WriteLine(sqlOutput);
+                return;
             }
-            else
-            {
-                Console.WriteLine(sqlOutput);
-            }
+
+            Console.WriteLine(sqlOutput);
         }
 
         /// <summary>
@@ -60,11 +52,10 @@ namespace SQLRecon.Modules
 
                 _print.Status(string.Format("SQL agent is running on {0}.", linkedSqlServer), true);
                 Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer));
+                return;
             }
-            else
-            {
-                Console.WriteLine(sqlOutput);
-            }
+
+            Console.WriteLine(sqlOutput);
         }
 
         /// <summary>
@@ -145,8 +136,9 @@ namespace SQLRecon.Modules
         private string _linkedAgentStatus(SqlConnection con, string linkedSqlServer)
         {
             string sqlOutput = _sqlQuery.ExecuteTunnelCustomQuery(con, linkedSqlServer,
-                "SELECT dss.[status], dss.[status_desc]" +
-                "FROM sys.dm_server_services dss WHERE dss.[servicename] LIKE ''SQL Server Agent (%'';");
+                "SELECT dss.[status], dss.[status_desc] FROM sys.dm_server_services dss WHERE dss.[servicename] LIKE 'SQL Server Agent (%';");
+
+            Console.WriteLine(sqlOutput);
 
             if (sqlOutput.ToLower().Contains("running"))
             {
@@ -201,14 +193,14 @@ namespace SQLRecon.Modules
             _print.Status(string.Format("Setting step_name to '{0}'.", stepName), true);
 
             _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                "EXEC dbo.sp_add_job @job_name = ''" + jobName + "'';" +
-                "EXEC dbo.sp_add_jobstep @job_name = ''" + jobName + "'', " +
-                "@step_name = ''" + stepName + "'', " +
-                "@subsystem = ''" + subSystem + "'', " +
-                "@command = ''" + command + "'', " +
+                "EXEC dbo.sp_add_job @job_name = '" + jobName + "';" +
+                "EXEC dbo.sp_add_jobstep @job_name = '" + jobName + "', " +
+                "@step_name = '" + stepName + "', " +
+                "@subsystem = '" + subSystem + "', " +
+                "@command = '" + command + "', " +
                 "@retry_attempts = 1, " +
                 "@retry_interval = 5;" +
-                "EXEC dbo.sp_add_jobserver @job_name = ''" + jobName + "'';");
+                "EXEC dbo.sp_add_jobserver @job_name = '" + jobName + "';");
 
             // Display all jobs.
             sqlOutput = _getLinkedAgentJobs(con, linkedSqlServer);
@@ -219,12 +211,12 @@ namespace SQLRecon.Modules
                 _print.Status(string.Format("Executing job '{0}' and waiting for 5 seconds ...", jobName), true);
 
                 _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                    "EXEC dbo.sp_start_job ''" + jobName + "''; " +
-                    "WAITFOR DELAY ''00:00:05'';");
+                    "EXEC dbo.sp_start_job '" + jobName + "'; " +
+                    "WAITFOR DELAY '00:00:05';");
 
                 // Delete job after it has executed.
                 _sqlQuery.ExecuteTunnelCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                    "EXEC dbo.sp_delete_job  @job_name = ''" + jobName + "'';");
+                    "EXEC dbo.sp_delete_job  @job_name = '" + jobName + "';");
 
                 // Display all jobs.
                 Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer));
@@ -245,9 +237,8 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
-        /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
         /// <returns>All agent jobs running on the specified SQL server.</returns>
-        private string _agentStatus(SqlConnection con, string sqlServer, string impersonate = "null")
+        private string _agentStatus(SqlConnection con, string sqlServer)
         {
             // Identify if the SQL agent is running on the SQL server, use impersonation
             // if specified, if not, check the status of the agent normally.
@@ -274,12 +265,10 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
-        /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
         /// <returns>All agent jobs running on the specified SQL server.</returns>
-        private string _getAgentjobs(SqlConnection con, string sqlServer, string impersonate = "null")
+        private string _getAgentjobs(SqlConnection con, string sqlServer)
         {
             // If the SQL agent is running on the SQL server, retrieve the jobs,
-            // Use impersonation if specified, if not, retrieve the jobs normally.
             string sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT job_id, name, enabled, " +
                 "date_created, date_modified FROM msdb.dbo.sysjobs ORDER BY date_created");
 

