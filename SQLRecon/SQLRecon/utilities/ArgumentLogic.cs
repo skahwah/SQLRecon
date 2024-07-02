@@ -1,112 +1,212 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using SQLRecon.Commands;
 
 namespace SQLRecon.Utilities
 {
-    internal class ArgumentLogic
+    internal abstract class ArgumentLogic
     {
-        private static readonly GlobalVariables _gV = new();
-        private static readonly PrintUtils _print = new();
-
-        private const string _CALLING_CONVENTION = "/";
-        private const char _VALUE_SEPARATOR = ':';
-        private static readonly Dictionary<string, string> _coreCommands = _gV.CoreCommands;
-        private static readonly Dictionary<string, int> _standardArgumentsAndOptionCount = _gV.StandardArgumentsAndOptionCount;
-        private static readonly Dictionary<string, int> _impersonationArgumentsAndOptionCount = _gV.ImpersonationArgumentsAndOptionCount;
-        private static readonly Dictionary<string, int> _linkedArgumentsAndOptionCount = _gV.LinkedArgumentsAndOptionCount;
-        private static readonly Dictionary<string, int> _sccmArgumentsAndOptionCount = _gV.SccmArgumentsAndOptionCount;
-
+        private const string CallingConvention = "/";
+        private const char ValueSeparator = ':';
+        
         /// <summary>
         /// The ParseArguments method parses user supplied command line arguments
-        /// and places the values into a dictionary (key/value pair style). 
+        /// and places the values into a dictionary (key/value pair style).
         /// Arguments are expected to be in '/key:value' format.
         /// </summary>
         /// <param name="args"></param>
         /// <returns></returns>
-        internal static Dictionary<string, string> ParseArguments(IEnumerable<string> args)
+        internal static void ParseArguments(IEnumerable<string> args)
         {
-            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            Dictionary<string, string> parsedArguments = new(StringComparer.InvariantCultureIgnoreCase);
 
             try
             {
                 foreach (string arg in args)
                 {
                     // Ensure that the argument starts with "/".
-                    if (!arg.StartsWith(_CALLING_CONVENTION))
+                    if (!arg.StartsWith(CallingConvention))
                     {
-                        _print.Error(string.Format("Arguments need to start with the '{0}' calling convention. " +
-                            "Use '/help' to display the help menu.", _CALLING_CONVENTION.ToString()), true);
-                        result.Add("Error", "Error");
-                        return result;
+                        Print.Error(
+                            $"Arguments need to start with the '{CallingConvention}' calling convention. " +
+                            "Use '/help' to display the help menu.", true);
+                        
+                        // Go no further.
+                        return;
                     }
 
                     // Split the argument on a ":" and place into an array.
-                    string[] parts = arg.Split(new char[] { _VALUE_SEPARATOR }, 2);
+                    string[] parts = arg.Split(new[] { ValueSeparator }, 2);
 
-                    // Populate the dictionary using the array,
+                    // Populate the dictionary using the array.
                     if (parts.Length == 2)
                     {
-                        result[parts[0].ToLower().Substring(1)] = parts[1];
+                        parsedArguments[parts[0].ToLower().Substring(1)] = parts[1];
                     }
                     else
                     {
-                        result[parts[0].ToLower().Substring(1)] = "";
+                        parsedArguments[parts[0].ToLower().Substring(1)] = "";
                     }
                 }
-
-                // Print the Help menu if the "/help" flag is supplied.
-                if (result.ContainsKey("help"))
-                {
-                    Help _ = new();
-                    result.Add("Error", "Error");
-                    return result;
-                }
-
-                // Convert any short form arguments to long form
-                // For example '/a:' to  '/auth:'.
-                return _convertArgumentFromShortToLong(result);
+                
+                // Convert any short form arguments to long form, for example '/a:'
+                // to '/auth:'. This is for consistency when referencing dictionary keys.
+                parsedArguments = _convertArgumentFromShortToLong(parsedArguments);
+                
+                // Pass the dictionary into _globalVariableAssignment so that dictionary
+                // keys can be assigned to a global variable.
+                _globalVariableAssignment(parsedArguments);
             }
             catch (ArgumentException)
             {
-                _print.Error("Duplicate switches detected. Check your command again.", true);
-                result.Add("Error", "Error");
-                return result;
+                Print.Error("Duplicate switches detected. Check your command again.", true);
             }
         }
 
         /// <summary>
-        /// The EvaluateTheArguments method performs logic against the various
+        /// The EvaluateEnumerationModuleArguments method is responsible for determining
+        /// what enumeration module to use.
+        /// </summary>
+        public static void EvaluateEnumerationModuleArguments()
+        {
+            if (Var.EnumerationModulesAndArgumentCount.ContainsKey(Var.EnumerationModule))
+            {
+                // Obtain the number of required arguments for each module
+                int numberOfRequiredArguments = Var.EnumerationModulesAndArgumentCount[Var.EnumerationModule];
+                
+                // Print the module and the number of arguments it requires if debug/verbose is true.
+                if (Var.Debug)
+                {
+                    Print.Debug($"Module: {Var.EnumerationModule}");
+                    Print.Nested($"Number of required enumeration module arguments: {numberOfRequiredArguments}", true);
+                }
+                
+                // Execute the enumeration module
+                EnumerationModules.Execute();
+            }
+            else
+            {
+                //Go no further
+                Print.Error($"'{Var.EnumerationModule}' is an invalid enumeration module.", true);
+            }
+        }
+        
+        /// <summary>
+        /// The EvaluateSccmModuleArguments method is responsible for determining
+        /// what SCCM module to use.
+        /// </summary>
+        public static void EvaluateSccmModuleArguments()
+        {
+            if (Var.SccmModulesAndArgumentCount.ContainsKey(Var.SccmModule))
+            {
+                // Obtain the number of required arguments for each module
+                int[] numberOfRequiredArguments = Var.SccmModulesAndArgumentCount[Var.SccmModule];
+                int standardArgumentCount = numberOfRequiredArguments[0];
+                int impersonateArgumentCount = numberOfRequiredArguments[1];
+                
+                // Print the module and the number of arguments it requires if debug/verbose is true.
+                if (Var.Debug)
+                {
+                    Print.Debug($"Module: {Var.SccmModule}");
+                    Print.Nested($"Number of required SCCM module arguments: {standardArgumentCount}", true);
+                    Print.Nested($"Number of required SCCM module impersonate arguments: {impersonateArgumentCount}", true);
+                }
+                
+                // If the user supplies a user to impersonate, and the required argument count for the
+                // corresponding module is -1, then the module does not support impersonation,
+                // such as the "impersonate" module.
+                if (!string.IsNullOrEmpty(Var.Impersonate) && impersonateArgumentCount == -1)
+                {
+                    Print.Error($"The '{Var.SccmModule}' module does not support impersonation.", true);
+                    // Go no further
+                    return;
+                }
+                
+                // If the /iuser flag is present, then the execution mode is impersonation
+                Var.Context = !string.IsNullOrEmpty(Var.Impersonate) 
+                    ? "impersonation"
+                    // If /iuser is not present, then the execution mode is standard
+                    : "standard";
+                
+                // Execute the SCCM module
+                SccmModules.Execute();
+            }
+            else
+            {
+                //Go no further
+                Print.Error($"'{Var.SccmModule}' is an invalid SCCM module.", true);
+            }
+        }
+        
+        /// <summary>
+        /// The EvaluateSqlModuleArguments method performs logic against the various
         /// commands and associated arguments that are supported by SQLRecon to
-        /// ensure that the correct module is selected. All of the supported commands
+        /// ensure that the correct module is selected. All the supported commands
         /// are located in the GlobalVariables.cs file. Commands and the argument count they
         /// support are stored in a key/value pair. Where the key is the command (for example 'query')
         /// and the value is the number of arguments the 'query' command needs, which is 1.
         /// </summary>
-        /// <param name="argDict">The argDict dictionary contains the modules to be used by SQLRecon.</param>
-        public static void EvaluateTheArguments(Dictionary<string, string> argDict)
+        public static void EvaluateSqlModuleArguments()
         {
-            if (_standardArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int standardArgumentCount))
+            if (Var.SqlModulesAndArgumentCount.ContainsKey(Var.Module))
             {
-                _checkStandard(argDict, standardArgumentCount);
-            }
-            else if (_impersonationArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int impersonationArgumentCount))
-            {
-                _checkImpersonation(argDict, impersonationArgumentCount);
-            }
-            else if (_linkedArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int linkedArgumentCount))
-            {
-                _checkLinked(argDict, linkedArgumentCount);
-            }
-            else if (_sccmArgumentsAndOptionCount.TryGetValue(argDict["module"].ToLower(), out int sccmArgumentCount))
-            {
-                _checkSccm(argDict, sccmArgumentCount);
+                // Obtain the number of required arguments for each module
+                int[] numberOfRequiredArguments = Var.SqlModulesAndArgumentCount[Var.Module];
+                int standardArgumentCount = numberOfRequiredArguments[0];
+                int impersonateArgumentCount = numberOfRequiredArguments[1];
+                int linkedArgumentCount = numberOfRequiredArguments[2];
+                
+                // Print the module and the number of arguments it requires if debug/verbose is true.
+                if (Var.Debug)
+                {
+                    Print.Debug($"Module: {Var.Module}");
+                    Print.Nested($"Number of required standard arguments: {standardArgumentCount}", true);
+                    Print.Nested($"Number of required impersonate arguments: {impersonateArgumentCount}", true);
+                    Print.Nested($"Number of required linked arguments: {linkedArgumentCount}", true);
+                }
+                
+                // If the user supplies a user to impersonate, and the required argument count for the
+                // corresponding module is -1, then the module does not support impersonation,
+                // such as the "impersonate" module.
+                if (!string.IsNullOrEmpty(Var.Impersonate) && impersonateArgumentCount == -1)
+                {
+                    Print.Error($"The '{Var.Module}' module does not support impersonation.", true);
+                    // Go no further
+                    return;
+                }
+
+                // If the user supplies a linked SQL server, and the required argument count for the
+                // corresponding module is -1, then the module does not support linked execution,
+                // such as the "impersonate" module.
+                if (!string.IsNullOrEmpty(Var.LinkedSqlServer) && linkedArgumentCount == -1)
+                {
+                    Print.Error($"The '{Var.Module}' module does not support linked SQL servers.", true);
+                    // Go no further
+                    return;
+                }
+                
+                // If the /iuser flag is present, then the execution mode is impersonation
+                if (!string.IsNullOrEmpty(Var.Impersonate))
+                {
+                    _prepareSqlModuleForExecution("Impersonation", impersonateArgumentCount);
+
+                }
+                else if (!string.IsNullOrEmpty(Var.LinkedSqlServer))
+                {
+                    // If the /link flag is present, then the execution mode is for linked servers
+                    _prepareSqlModuleForExecution("Linked", linkedArgumentCount);
+                }
+                else
+                {
+                    // If /iuser, or /link is not present, then the execution mode is standard
+                    _prepareSqlModuleForExecution("Standard", standardArgumentCount);
+                }
             }
             else
             {
-                _print.Error("Invalid module.", true);
-                // Go no further.
-                return;
+                // Go no further
+                Print.Error($"'{Var.Module}' is an invalid SQL module.", true);
             }
         }
 
@@ -119,7 +219,7 @@ namespace SQLRecon.Utilities
         /// <returns></returns>
         private static Dictionary<string, string> _convertArgumentFromShortToLong(Dictionary<string, string> argumentDictionary)
         {
-            foreach (var flag in _coreCommands)
+            foreach (KeyValuePair<string, string> flag in Var.CoreCommands)
             {
                 if (argumentDictionary.ContainsKey(flag.Key))
                 {
@@ -130,581 +230,315 @@ namespace SQLRecon.Utilities
             }
             return argumentDictionary;
         }
-
+        
         /// <summary>
-        /// The _checkStandard method is reponsible for validating that the supplied
-        /// command is structured correctly and has the appropriate arguments, if
-        /// necessary for a specific module. This function performs error handling for
-        /// all standard SQL moduels if the structure of a command is valid, 
-        /// global variables are set and a call is made to the ModuleHandler class.
+        /// The _globalVariableAssignment method assigns dictionary values to corresponding global variables.
+        /// All parsed arguments are stored in the ParsedArguments global variable.
+        /// This method does some error handling for multiple hosts that are supplied to the /hosts
+        /// and/or /link arguments. Additional error handling is also performed to create conditions where
+        /// restrictions are necessary. For example, an impersonation user can not be used against linked system (yet).
         /// </summary>
-        /// <param name="argumentDictionary"></param>
-        /// <param name="argumentCount"></param>
-        private static void _checkStandard(Dictionary<string, string> argumentDictionary, int argumentCount = 0)
+        /// <param name="parsedArguments"></param>
+        private static void _globalVariableAssignment(Dictionary<string, string> parsedArguments)
         {
-            if (argumentCount == 0)
+            // Assign user supplied input into some global variables. Lowercase the module name to standardize 
+            // references throughout the program.
+            Var.AuthenticationType = parsedArguments.ContainsKey("auth") ? parsedArguments["auth"].ToLower() : null;
+            Var.Domain = parsedArguments.ContainsKey("domain") ? parsedArguments["domain"] : null;
+            Var.EnumerationModule = parsedArguments.ContainsKey("enum") ? parsedArguments["enum"] : null;
+            Var.Impersonate = parsedArguments.ContainsKey("iuser") ? parsedArguments["iuser"] : null;
+            Var.LinkedSqlServerChain = parsedArguments.ContainsKey("chain");
+            Var.Module = parsedArguments.ContainsKey("module") ? parsedArguments["module"].ToLower() : null;
+            Var.Password = parsedArguments.ContainsKey("password") ? parsedArguments["password"] : null;
+            Var.Username = parsedArguments.ContainsKey("username") ? parsedArguments["username"] : null;
+            Var.SccmModule = parsedArguments.ContainsKey("sccm") ? parsedArguments["sccm"].ToLower() : null;
+
+            // Print the help menu if the "/help" flag is supplied.
+            if (parsedArguments.ContainsKey("help"))
             {
-                if (argumentDictionary.ContainsKey("module"))
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/db:' flag.
-            else if (argumentCount == 1 && argumentDictionary["module"].ToLower().Equals("tables"))
-            {
-                if (!argumentDictionary.ContainsKey("db"))
-                {
-                    _print.Error("Must supply a database for this module (/db:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/keyword:' flag.
-            else if (argumentCount == 1 && argumentDictionary["module"].ToLower().Equals("search"))
-            {
-                if (!argumentDictionary.ContainsKey("keyword"))
-                {
-                    _print.Error("Must supply a keyword for this module (/keyword:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["keyword"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/rhost:' flag.
-            else if (argumentCount == 1 && argumentDictionary["module"].ToLower().Equals("disablerpc") ||
-                argumentDictionary["module"].ToLower().Equals("enablerpc") ||
-                argumentDictionary["module"].ToLower().Equals("smb"))
-            {
-                if (!argumentDictionary.ContainsKey("rhost"))
-                {
-                    _print.Error("Must supply a rhost for this module (/rhost:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/c:, /command:' flag.
-            else if (argumentCount == 1 && argumentDictionary["module"].ToLower().Equals("agentcmd") ||
-                argumentDictionary["module"].ToLower().Equals("olecmd") ||
-                argumentDictionary["module"].ToLower().Equals("xpcmd") ||
-                argumentDictionary["module"].ToLower().Equals("query"))
-            {
-                if (!argumentDictionary.ContainsKey("command"))
-                {
-                    _print.Error("Must supply a command for this module (/c:, /command:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["command"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/db:' and '/table:' flags.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("columns") ||
-                argumentDictionary["module"].ToLower().Equals("rows"))
-            {
-                if (!argumentDictionary.ContainsKey("db") || !argumentDictionary.ContainsKey("table"))
-                {
-                    _print.Error("Must supply a database (/db:) and table name (/table:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.Arg2 = argumentDictionary["table"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the clr module.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("clr"))
-            {
-                if (!argumentDictionary.ContainsKey("dll") || !argumentDictionary.ContainsKey("function"))
-                {
-                    _print.Error("Must supply location to a DLL (/dll:) and function name (/function:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["dll"];
-                    _gV.Arg2 = argumentDictionary["function"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the adsi module.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("adsi"))
-            {
-                if (!argumentDictionary.ContainsKey("rhost") || !argumentDictionary.ContainsKey("lport"))
-                {
-                    _print.Error("Must supply an ADSI server name (/rhost:) and port for the LDAP server to listen on (/lport:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    _gV.Arg2 = argumentDictionary["lport"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            else
-            {
-                _print.Error("Invalid module.", true);
+                Help _ = new();
                 // Go no further.
                 return;
             }
-        }
-
-        /// <summary>
-        /// The _checkImpersonation method is reponsible for validating that the supplied
-        /// command is structured correctly and has the appropriate arguments, if
-        /// necessary for a specific module. This function performs error handling for
-        /// all impersonation SQL modules if the structure of a command is valid, 
-        /// global variables are set and a call is made to the ModuleHandler class.       
-        /// </summary>
-        /// <param name="argumentDictionary"></param>
-        /// <param name="argumentCount"></param>
-        private static void _checkImpersonation(Dictionary<string, string> argumentDictionary, int argumentCount = 1)
-        {
-            // First check if the "/i:, /iuser:" flag has been supplied.
-            if (argumentCount == 1)
+            
+            // Set the database to the value supplied in the "/database" flag and assign into Var.Database.
+            // Otherwise, the default value is master.
+            if (parsedArguments.ContainsKey("database"))
             {
-                if (!argumentDictionary.ContainsKey("iuser"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
-
-                }
+                Var.Database = parsedArguments["database"];
             }
-            // This is a custom error message and flag assignment for modules which use the '/db:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("itables"))
+            
+            // Set the port to the value supplied in the "/port" flag and assign into Var.Port.
+            // Otherwise, the default value is 1433.
+            if (parsedArguments.ContainsKey("port"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("db"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:) and a database for this module (/db:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
-                }
+                Var.Port = parsedArguments["port"];
             }
-            // This is a custom error message and flag assignment for modules which use the '/keyword:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("isearch"))
+            
+            // Set the timeout to the value supplied in the "/timeout" flag and assign into Var.Timeout.
+            // Otherwise, the default value is 4.
+            if (parsedArguments.ContainsKey("timeout"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("keyword"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:) and a keyword for this module (/keyword:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["keyword"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
-                }
+                Var.Timeout = parsedArguments["timeout"];
             }
-            // This is a custom error message and flag assignment for modules which use the '/rhost:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("idisablerpc") ||
-                argumentDictionary["module"].ToLower().Equals("ienablerpc"))
+            
+            // Enable debug if the "/debug" flag is supplied and assign into Var.Debug.
+            if (parsedArguments.ContainsKey("debug"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("rhost"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:) and a rhost for this module (/rhost:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
-                }
+                Var.Debug = true;
+                Print.Status("Debug mode enabled. No SQL queries will be executed.", true);
             }
-            // This is a custom error message and flag assignment for modules which use the '/command:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("iagentcmd") ||
-                argumentDictionary["module"].ToLower().Equals("iolecmd") ||
-                argumentDictionary["module"].ToLower().Equals("ixpcmd") ||
-                argumentDictionary["module"].ToLower().Equals("iquery"))
+            
+            // Enable verbosity if the "/verbose" or "/v" flag is supplied and assign into Var.Verbose.
+            if (parsedArguments.ContainsKey("verbose"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("command"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:) and a command for this module (/c:, /command:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["command"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
-                }
+                Var.Verbose = true; 
             }
-            // This is a custom error message and flag assignment for modules which use the '/db:' and '/table:' flags.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("icolumns") ||
-                argumentDictionary["module"].ToLower().Equals("irows"))
+            
+            // Check for single or multiple hosts in "/host" or "/h" and assign into Var.sqlServers
+            if (parsedArguments.ContainsKey("host"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("db") || !argumentDictionary.ContainsKey("table"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:), a database (/db:) and table name (/table:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.Arg2 = argumentDictionary["table"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-
-                }
+                // Var.SqlServers is an array which contains the single host, or comma-seperated hosts
+                // supplied into the "/host" variable 
+                Var.SqlServers = parsedArguments["host"].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            
+                // Set the first host in the Var.SqlServers array to the initial connection host.
+                Var.SqlServer = Var.SqlServers[0];
+            } 
+            
+            // Check single or multiple hosts in "/link" or "/l" and assign into Var.linkedSqlServers
+            if (parsedArguments.ContainsKey("link"))
+            {
+                // Var.LinkedServers is an array which contains the single linked host, or comma-seperated linked hosts
+                // supplied into the "/link" variable 
+                Var.LinkedSqlServers = parsedArguments["link"].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                
+                // Set the first host in the Var.LinkedSqlServers array to the initial linked connection host.
+                Var.LinkedSqlServer = Var.LinkedSqlServers[0]; 
             }
-            // This is a custom error message and flag assignment for the iclr module.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("iclr"))
+            
+            // Create a limitation where users can not specify both the /link and /iuser flag
+            if (parsedArguments.ContainsKey("link") && parsedArguments.ContainsKey("iuser"))
             {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("dll") || !argumentDictionary.ContainsKey("function"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:), location to DLL (/dll:) and function name (/function:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["dll"];
-                    _gV.Arg2 = argumentDictionary["function"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the iadsi module.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("iadsi"))
-            {
-                if (!argumentDictionary.ContainsKey("iuser") || !argumentDictionary.ContainsKey("rhost") || !argumentDictionary.ContainsKey("lport"))
-                {
-                    _print.Error("Must supply a user to impersonate (/i:, /iuser:), ADSI server name (/rhost:) and port for the LDAP server to listen on (/lport:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    _gV.Arg2 = argumentDictionary["lport"];
-                    _gV.Impersonate = argumentDictionary["iuser"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            else
-            {
-                _print.Error("Invalid module.", true);
+                Print.Error("The linked SQL server flag (/link, /l) and a user to impersonate " +
+                             "(/iuser, /i) was supplied. SQLRecon only supports one or the other.", true);
                 // Go no further.
                 return;
             }
-        }
-
-        /// <summary>
-        /// The _checkLinked method is reponsible for validating that the supplied
-        /// command is structured correctly and has the appropriate arguments, if
-        /// necessary for a specific module. This function performs error handling for
-        /// all linked SQL server modules if the structure of a command is valid, 
-        /// global variables are set and a call is made to the ModuleHandler class.
-        /// </summary>
-        /// <param name="argumentDictionary"></param>
-        /// <param name="argumentCount"></param>
-        private static void _checkLinked(Dictionary<string, string> argumentDictionary, int argumentCount = 1)
-        {
-            // First check if the "/l:, /lhost:" flag has been supplied.
-            if (argumentCount == 1)
+            
+            // Create a limitation where users can not specify both the /chain and /iuser flag
+            if (parsedArguments.ContainsKey("chain") && parsedArguments.ContainsKey("iuser"))
             {
-                if (!argumentDictionary.ContainsKey("lhost"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/rhost:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("lsmb"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("rhost"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:) and a rhost for this module (/rhost:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/db:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("ltables"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("db"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:) and a database for this module (/db:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for modules which use the '/c:, /command:' flag.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("lquery") ||
-                argumentDictionary["module"].ToLower().Equals("lxpcmd") ||
-                argumentDictionary["module"].ToLower().Equals("lolecmd") ||
-                argumentDictionary["module"].ToLower().Equals("lagentcmd"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("command"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:) and a command for this module (/command:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["command"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for  modules which use the '/db:' and '/table:' flags.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("lcolumns") ||
-                 argumentDictionary["module"].ToLower().Equals("lrows"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("db") || !argumentDictionary.ContainsKey("table"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:), a database (/db:) and table name (/table:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.Arg2 = argumentDictionary["table"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the lsearch module.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("lsearch"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("db") || !argumentDictionary.ContainsKey("keyword"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:), a database (/db:) and keyword (/keyword:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["db"];
-                    _gV.Arg2 = argumentDictionary["keyword"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the lclr module.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("lclr"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("dll") || !argumentDictionary.ContainsKey("function"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:), location to DLL (/dll:) and function name (/function:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["dll"];
-                    _gV.Arg2 = argumentDictionary["function"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the ladsi module.
-            else if (argumentCount == 3 && argumentDictionary["module"].ToLower().Equals("ladsi"))
-            {
-                if (!argumentDictionary.ContainsKey("lhost") || !argumentDictionary.ContainsKey("rhost") || !argumentDictionary.ContainsKey("lport"))
-                {
-                    _print.Error("Must supply a linked SQL server (/l:, /lhost:), ADSI server name (/rhost:) and port for the LDAP server to listen on (/lport:).", true);
-                    // Go no further.
-                    return;
-                }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["rhost"];
-                    _gV.Arg2 = argumentDictionary["lport"];
-                    _gV.LinkedSqlServer = argumentDictionary["lhost"];
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            else
-            {
-                _print.Error("Invalid module.", true);
+                Print.Error("The linked SQL server chain flag (/chain) and a user to impersonate " +
+                             "(/iuser, /i) was supplied. SQLRecon only supports one or the other.", true);
                 // Go no further.
                 return;
             }
-        }
 
-        /// <summary>
-        /// The _checkStandard method is reponsible for validating that the supplied
-        /// command is structured correctly and has the appropriate arguments, if
-        /// necessary for a specific module. This function performs error handling for
-        /// all standard SQL moduels if the structure of a command is valid, 
-        /// global variables are set and a call is made to the ModuleHandler class.
-        /// </summary>
-        /// <param name="argumentDictionary"></param>
-        /// <param name="argumentCount"></param>
-        private static void _checkSccm(Dictionary<string, string> argumentDictionary, int argumentCount = 0)
-        {
-            if (argumentCount == 0)
+            /*
+             * Create a limitation where if multiple SQL servers are supplied in "/hosts", then
+             * executing modules against linked servers supplied in "/link" is not possible. In addition,
+             * if multiple linked servers are supplied in "/link", then only one host can be present in the
+             * "/host" variable.
+             */
+            if (parsedArguments.ContainsKey("host") && parsedArguments.ContainsKey("link"))
             {
-                if (argumentDictionary.ContainsKey("module"))
+                if ((Var.SqlServers.Length > 1 && Var.LinkedSqlServers.Length > 0))
                 {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _checkOptionalArgument(argumentDictionary);
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the saddadmin module.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("saddadmin"))
-            {
-                if (!argumentDictionary.ContainsKey("user") || !argumentDictionary.ContainsKey("sid"))
-                {
-                    _print.Error("Use '/user:current /sid:current' if you want to set 'Full Administrator' privileges " +
-                        "on the current user account. Or use '/user:DOMAIN\\USERNAME /sid:SID' to set 'Full Administrator' " +
-                        "privileges on a target account.", true);
+                    Print.Error("SQLRecon supports the execution of modules against multiple SQL servers " +
+                                 "supplied in the /host or /h argument. However, it is not possible to execute linked " +
+                                 "commands against multiple SQL Servers as the linked servers supplied in /link or /l may " +
+                                 "not exist on all remote SQL servers.", true);
                     // Go no further.
                     return;
                 }
-                else
-                {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["user"];
+            }
 
-                    if (argumentDictionary["sid"].ToLower().Equals("current"))
+            /*
+             * Create a limitation where if multiple SQL servers are supplied in "/hosts", then
+             * executing modules against linked SQL server chain supplied in "/link" is not possible, if the "/chain" flag is present.
+             * In addition, if multiple linked SQL servers are supplied in "/link", then only one host can be present in the
+             * "/host" variable.
+             */
+            if (parsedArguments.ContainsKey("host") && parsedArguments.ContainsKey("link") && parsedArguments.ContainsKey("chain"))
+            {
+                if ((Var.SqlServers.Length > 1 && Var.LinkedSqlServers.Length > 0) && Var.LinkedSqlServerChain)
+                {
+                    Print.Error("SQLRecon supports the execution of modules against linked SQL servers, and SQL servers linked " + 
+                                 "off a linked SQL server. However, it is not possible to execute commands against multiple SQL servers" +
+                                 "supplied in the /host or /h argument, as the linked chain supplied in /link or /l may not" +
+                                 "exist on all remote SQL servers.", true);
+                    // Go no further.
+                    return;
+                }
+            }
+            
+            // Assign parsedArguments into Var.ParsedArguments global variable.
+            Var.ParsedArguments = _convertArgumentFromShortToLong(parsedArguments);
+            
+            // Print the CLI arguments if the /debug or /verbose flags are supplied
+            if (Var.Debug || Var.Verbose)
+            {
+                Print.Debug("CLI Arguments:");
+                foreach(KeyValuePair<string, string> entry in Var.ParsedArguments) 
+                {
+                    Print.Nested($"/{entry.Key}:{entry.Value}", true);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// The _prepareModuleForExecution method directs the module execution to the correct location,
+        /// whether that is standard (against a single or multiple SQL servers), impersonation,
+        /// or linked. In addition, the execution of modules against multiple SQL servers, or linked
+        /// SQL servers is handled in this method.
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="argCount"></param>
+        private static void _prepareSqlModuleForExecution(string context, int argCount = 0)
+        {
+            if (Var.Debug)
+            {
+                Print.Debug($"Context Selected: {context}");
+                Print.Nested($"Module: {Var.Module}", true);
+                Print.Nested($"Number of required arguments: {argCount}", true);    
+            }
+            
+            // This sets the context for all SQL module logic.
+            Var.Context = context.ToLower();
+
+            if (Var.Context == "standard")
+            {
+                // Check to see if multiple SQL servers have been supplied
+                if (Var.SqlServers.Length > 1)
+                {
+                    for (int i = 0; i < Var.SqlServers.Length; i++)
                     {
-                        _gV.Arg2 = "";
+                        // Set the Var.SqlServer global variable to the current SQL server in the array 
+                        Var.SqlServer = Var.SqlServers[i];
+                        
+                        // Create a new SQL connection object
+                        Var.Connect = SetAuthenticationType.CreateSqlConnectionObject();
+                        
+                       if (Var.Connect == null)
+                       {
+                           Console.WriteLine();
+                           Print.Error($"Connection to '{Var.Database}' on {Var.SqlServer} failed. Skipping this host.", true);
+                       }
+                       else
+                       {
+                           Console.WriteLine();
+                           Print.Status($"({i+1}/{Var.SqlServers.Length}) Executing the '{Var.Module}' module on {Var.SqlServers[i]}", true);
+                           Console.WriteLine();
+                           
+                           // Execute the module against the current SQL server
+                           SqlModules.Execute();
+                       }
                     }
-                    else
-                    {
-                        _gV.Arg2 = argumentDictionary["sid"];
-                    }
-
-                    ModuleHandler.ExecuteModule();
-                }
-            }
-            // This is a custom error message and flag assignment for the sremoveadmin module.
-            else if (argumentCount == 2 && argumentDictionary["module"].ToLower().Equals("sremoveadmin"))
-            {
-                if (!argumentDictionary.ContainsKey("user") || !argumentDictionary.ContainsKey("remove"))
-                {
-                    _print.Error("Must include AdminID (/user:) and permissions string (/remove:) to remove 'Full Administrator' privileges from the target account.", true);
-                    // Go no further.
-                    return;
                 }
                 else
                 {
-                    _gV.Module = argumentDictionary["module"].ToLower();
-                    _gV.Arg1 = argumentDictionary["user"];
-                    _gV.Arg2 = argumentDictionary["remove"];
-                    ModuleHandler.ExecuteModule();
+                    Print.Status($"Executing the '{Var.Module}' module on {Var.SqlServer}", true);
+                    Console.WriteLine();
+                    
+                    // Execute the module against a single SQL server
+                    SqlModules.Execute();
+                }
+            }
+            else if (Var.Context == "impersonation")
+            {
+                // Check to see if multiple SQL servers have been supplied
+                if (Var.SqlServers.Length > 1)
+                {
+                    for (int i = 0; i < Var.SqlServers.Length; i++)
+                    {
+                        // Set the Var.SqlServer global variable to the current SQL server in the array 
+                        Var.SqlServer = Var.SqlServers[i];
+                        
+                        // Create a new SQL connection object
+                        Var.Connect = SetAuthenticationType.CreateSqlConnectionObject();
+                        
+                        if (Var.Connect == null)
+                        {
+                            Console.WriteLine();
+                            Print.Error($"Connection to '{Var.Database}' on {Var.SqlServer} failed. Skipping this host.", true);
+                        }
+                        else
+                        {
+                            Console.WriteLine();
+                            Print.Status($"({i+1}/{Var.SqlServers.Length}) Executing the '{Var.Module}' module on {Var.SqlServers[i]} as '{Var.Impersonate}'", true);
+                            Console.WriteLine();
+                           
+                            // Execute the module against the current SQL server
+                            SqlModules.Execute();
+                        }
+                    }
+                }
+                else
+                {
+                    Print.Status($"Executing the '{Var.Module}' module on {Var.SqlServer} as '{Var.Impersonate}'", true);
+                    Console.WriteLine();
+                    
+                    // Execute the module against a single SQL server
+                    SqlModules.Execute();
+                }
+                
+                
+            }
+            else if (Var.Context == "linked")
+            {
+                // Check to see if multiple linked SQL servers have been supplied
+                // Execute modules against each linked server that is present on a single 
+                // SQL server.
+                if (Var.LinkedSqlServers.Length > 1 && Var.LinkedSqlServerChain == false)
+                {
+                    for (int i = 0; i < Var.LinkedSqlServers.Length; i++)
+                    {
+                        // Set the Var.LinkedSqlServer global variable to the current SQL server in the array 
+                        Var.LinkedSqlServer = Var.LinkedSqlServers[i];
+                        
+                        Console.WriteLine();
+                        Print.Status($"({i+1}/{Var.LinkedSqlServers.Length}) Executing the '{Var.Module}' module on {Var.LinkedSqlServers[i]} via {Var.SqlServer}", true);
+                        Console.WriteLine();
+                        
+                        // Execute the module against the current SQL server
+                        SqlModules.Execute();
+                    }
+                }
+                // Check to see if a chain of SQL servers have been supplied.
+                else if (Var.LinkedSqlServers.Length > 1 && Var.LinkedSqlServerChain)
+                {
+                    // If Var.LinkedSqlServerChain is true, set Var.Context to chained. 
+                    Var.Context = "chained";
+                    
+                    // Format the Var.LinkedSqlServers array so that it meets the Format.LinkedChainQuery
+                    // expectation of {"0", "linked sql server", "linked sql server", "linked sql server" ... }
+                    Var.LinkedSqlServersChain = new[] { "0" }.Concat(Var.LinkedSqlServers).ToArray();
+                    
+                    Print.Status($"Setting the chain path to {Var.SqlServer + " -> " +  string.Join(" -> ", Var.LinkedSqlServers)}", true);
+                    Console.WriteLine();
+                    Print.Status($"Executing the '{Var.Module}' module on {Var.LinkedSqlServersChain.Last()}", true);
+                    Console.WriteLine();
+                    
+                    // After copying Var.LinkedSqlServers to Var.LinkedSqlServersChain, assign it to null.
+                    // this is important for logic reasons.
+                    Var.LinkedSqlServers = null;
+                    
+                    // Execute the module against a linked chain SQL server
+                    SqlModules.Execute();
+                }
+                else
+                {
+                    Print.Status($"Executing the '{Var.Module}' on {Var.LinkedSqlServer} via {Var.SqlServer}", true);
+                    Console.WriteLine();
+                    
+                    // Execute the module against a linked SQL server
+                    SqlModules.Execute();
                 }
             }
             else
             {
-                _print.Error("Invalid module.", true);
-                // Go no further.
-                return;
-            }
-        }
-
-        /// <summary>
-        /// The _checkOptionalArgument is intended for universal use for any module
-        /// that passes in the  '/option:' flag. Modules can and may include optional arguments. 
-        /// If a user passes an argument into '/option:' and it enters a module that is not looking
-        /// for the '/option:' key, operations will be unaffected. Arguments passed into '/option:'
-        /// will always be assigned to the Arg0 global variable, and later in _arg0 in
-        /// ModuleHandler.
-        /// </summary>
-        private static void _checkOptionalArgument(Dictionary<string, string> argumentDictionary)
-        {
-            if (argumentDictionary.ContainsKey("option"))
-            {
-                if (argumentDictionary["option"] != null)
-                {
-                    _gV.Arg0 = argumentDictionary["option"];
-                }
-                else
-                {
-                    _gV.Arg0 = "";
-                }
+                Print.Error("Invalid mode. SQLRecon supports standard, impersonation, and linked.",true);
             }
         }
     }

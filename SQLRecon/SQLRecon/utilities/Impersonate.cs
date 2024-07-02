@@ -8,27 +8,25 @@ using System.Security.Principal;
 
 namespace SQLRecon.Utilities
 {
-    // Reference: https://raw.githubusercontent.com/G0ldenGunSec/SharpSecDump/master/SharpSecDump/Impersonator.cs
-
+    // Reference: https://t.ly/eVP0J
     [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
 
-    internal class Impersonation : IDisposable
+    internal class Impersonate : IDisposable
     {
-        private static readonly PrintUtils _print = new();
         private readonly SafeTokenHandle _handle;
         private readonly WindowsImpersonationContext _context;
 
-        const int LOGON32_LOGON_NEW_CREDENTIALS = 9;
+        const int Logon32LogonNewCredentials = 9;
 
-        public Impersonation(string domain, string username, string password)
+        internal Impersonate(string domain, string username, string password)
         {
-            var ok = LogonUser(username, domain, password,
-                           LOGON32_LOGON_NEW_CREDENTIALS, 0, out this._handle);
+            bool ok = LogonUser(username, domain, password,
+                           Logon32LogonNewCredentials, 0, out this._handle);
             if (!ok)
             {
-                var errorCode = Marshal.GetLastWin32Error();
-                throw new ApplicationException(_print.Error(string.Format("Could not impersonate the elevated user. " +
-                    "LogonUser returned error code {0}.", errorCode)));
+                int errorCode = Marshal.GetLastWin32Error();
+                throw new ApplicationException(
+                    Print.Error($"Could not impersonate the elevated user. LogonUser returned error code {errorCode}."));
             }
 
             this._context = WindowsIdentity.Impersonate(this._handle.DangerousGetHandle());
@@ -44,7 +42,7 @@ namespace SQLRecon.Utilities
         private static extern bool LogonUser(String lpszUsername, String lpszDomain, String lpszPassword, 
             int dwLogonType, int dwLogonProvider, out SafeTokenHandle phToken);
 
-        public sealed class SafeTokenHandle : SafeHandleZeroOrMinusOneIsInvalid
+        private sealed class SafeTokenHandle : SafeHandleZeroOrMinusOneIsInvalid
         {
             private SafeTokenHandle()
                 : base(true) { }

@@ -1,104 +1,135 @@
-﻿using System.Data.SqlClient;
+﻿using System.Collections.Generic;
+using System.Data.SqlClient;
+using SQLRecon.Commands;
 using SQLRecon.Utilities;
 
 namespace SQLRecon.Modules
 {
-    internal class XpCmdShell
+    internal abstract class XpCmdShell
     {
-        private static readonly Configure _config = new();
-        private static readonly PrintUtils _print = new();
-        private static readonly SqlQuery _sqlQuery = new();
-
         /// <summary>
-        /// The Standard method executes an arbitrary command on 
-        /// a remoe SQL server using xp_cmdshell.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="cmd"></param>
-        public void Standard(SqlConnection con, string cmd)
-        {
-
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "xp_cmdshell");
-
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error("You need to enable xp_cmdshell (enablexp).", true);
-                // Go no futher.
-                return;
-            }
-
-            sqlOutput = _sqlQuery.ExecuteCustomQuery(con, "EXEC xp_cmdshell '" + cmd + "';");
-
-            _printStatus(sqlOutput);
-        }
-
-        /// <summary>
-        /// The Impersonate method executes an arbitrary command on 
-        /// a remote SQL server using xp_cmdshell with impersonation.
+        /// The StandardOrImpersonation method executes an arbitrary command on 
+        /// a remote SQL server using xp_cmdshell. Impersonation is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="cmd"></param>
         /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string cmd, string impersonate)
+        internal static void StandardOrImpersonation(SqlConnection con, string cmd, string impersonate = null)
         {
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.ModuleStatus(con, "xp_cmdshell", impersonate);
-
-            if (!sqlOutput.Contains("1"))
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                _print.Error("You need to enable xp_cmdshell (ienablexp).", true);
-                // Go no futher.
-                return;
+                { "xpcmd", string.Format(Query.XpCmd, cmd)}
+            };
+            
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            if (!string.IsNullOrEmpty(impersonate))
+            {
+                queries = Format.ImpersonationDictionary(impersonate, queries);
             }
 
-            sqlOutput = _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate, "EXEC xp_cmdshell '" + cmd + "';");
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            }
+            
+            // First check to see if xp_cmdshell is enabled. 
+            // Impersonation is supported.
+            bool status = (string.IsNullOrEmpty(impersonate))
+                ? Config.ModuleStatus(con, "xp_cmdshell")
+                : Config.ModuleStatus(con, "xp_cmdshell", impersonate);
 
-            _printStatus(sqlOutput);
+            if (status == false)
+            {
+                Print.Error("You need to enable xp_cmdshell (enablexp).", true);
+                // Go no further.
+                return;
+            }
+            
+            _printStatus(cmd, Sql.CustomQuery(con, queries["xpcmd"]));
         }
-
+        
         /// <summary>
-        /// The Linked method executes an arbitrary command on 
+        /// The LinkedOrChain method executes an arbitrary command on 
         /// a remote linked SQL server using xp_cmdshell.
+        /// Execution against the last SQL server specified in a chain of linked SQL servers is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="cmd"></param>
         /// <param name="linkedSqlServer"></param>
-        public void Linked(SqlConnection con, string cmd, string linkedSqlServer)
+        /// <param name="linkedSqlServerChain"></param>
+        internal static void LinkedOrChain(SqlConnection con, string cmd, string linkedSqlServer, string[] linkedSqlServerChain = null )
         {
-            // First check to see if xp_cmdshell is enabled.
-            string sqlOutput = _config.LinkedModuleStatus(con, "xp_cmdshell", linkedSqlServer);
-
-            if (!sqlOutput.Contains("1"))
+            bool status;
+            
+            // The queries dictionary contains all queries used by this module
+            // The dictionary key name for RPC formatted queries must start with RPC
+            Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                _print.Error("You need to enable xp_cmdshell (lenablexp).", true);
-                // Go no futher.
+                { "xpcmd", string.Format(Query.LinkedXpCmd, cmd)}
+            };
+            
+            if (linkedSqlServerChain == null)
+            {
+                // Format all queries so that they are compatible for execution on a linked SQL server.
+                queries = Format.LinkedDictionary(linkedSqlServer, queries);
+                
+                // First check to see if xp_cmdshell is enabled.
+                status = Config.LinkedModuleStatus(con, "xp_cmdshell", linkedSqlServer);
+            }
+            else
+            {
+                // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
+                queries = Format.LinkedChainDictionary(linkedSqlServerChain, queries);
+                
+                // First check to see if xp_cmdshell is enabled.
+                status = Config.LinkedModuleStatus(con, "xp_cmdshell", null, linkedSqlServerChain);
+            }
+            
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            } 
+            
+            if (status == false)
+            {
+                Print.Error("You need to enable xp_cmdshell (enablexp).", true);
+                // Go no further.
                 return;
             }
-
-            sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer, "select 1; exec master..xp_cmdshell ''" + cmd + "''");
-
-            _printStatus(sqlOutput);
+            
+            _printStatus(cmd, Sql.CustomQuery(con, queries["xpcmd"]));
         }
 
         /// <summary>
         /// The _printStatus method will display the status of the 
         /// xp_cmdshell command execution.
         /// </summary>
+        /// <param name="cmd"></param>
         /// <param name="sqlOutput"></param>
-        private void _printStatus(string sqlOutput)
+        private static void _printStatus(string cmd, string sqlOutput)
         {
-            if (sqlOutput.Contains("permission"))
+            if (sqlOutput.ToLower().Contains("permission"))
             {
-                _print.Error("The current user does not have permissions to enable xp_cmdshell commands.", true);
+                Print.Error("You do not have the correct privileges to perform this action.", true);
             }
-            else if (sqlOutput.Contains("blocked"))
+            else if (sqlOutput.ToLower().Contains("execution timeout expired"))
             {
-                _print.Error("You need to enable xp_cmdshell.", true);
+                Print.Status($"'{cmd}' executed.", true);
+
+            }    
+            else if (sqlOutput.ToLower().Contains("blocked"))
+            {
+                Print.Error("You need to enable xp_cmdshell.", true);
             }
             else
             {
-                _print.IsOutputEmpty(sqlOutput, true);
+                Print.IsOutputEmpty(sqlOutput, true);
             }
         }
     }

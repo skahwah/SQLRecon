@@ -25,230 +25,246 @@
 
 SQLRecon is a Microsoft SQL Server toolkit that is designed for offensive reconnaissance and post-exploitation. For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>. 
 
-<a href="https://github.com/skahwah/SQLRecon/wiki/8.-Prevention,-Detection-and-Mitigation-Guidance">Prevention, detection and mitigation guidance</a> has also been provided for all you defenders out there.
-
-Check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website.
-
-# Overview
-
 You can download a copy of SQLRecon from the [releases](https://github.com/skahwah/SQLRecon/releases) page. Alternatively, feel free to compile the solution yourself. This should be as straight forward as cloning the repo, double clicking the solution file and building.
 
-## Enumeration
+<a href="https://github.com/skahwah/SQLRecon/wiki/9.-Prevention,-Detection-and-Mitigation-Guidance">Prevention, detection and mitigation guidance</a> has also been provided for all you defenders out there.
 
-SQLRecon supports enumerating Active Directory for Server Principal Names (SPNs) that are associated with Microsoft SQL Server.
+Check out my blog post on the <a href="https://securityintelligence.com/posts/databases-beware-abusing-microsoft-sql-server-with-sqlrecon/">IBM Security Intelligence</a> website. If you prefer videos, then check out my <a href="https://www.youtube.com/watch?v=LsYSePobFWA">presentation at Black Hat</a>.
 
-Enumeration Modules (`/e:, /enum:`) do not require an authentication provider to be supplied.
+# Enumeration Modules
 
-```
-SqlSpns - Use the current user token to enumerate the current AD domain for MSSQL SPNs
-        /d:, /domain: | (OPTIONAL) NETBIOS name (DOMAIN) or FQDN of domain (DOMAIN.COM)
-```
-
-## Authentication Providers
-
-SQLRecon supports a diverse set of authentication providers to enable interacting with a Microsoft SQL Server. An authentication provider must be supplied (`/a:, /auth:`).
-
+Enumeration Modules do not require an authentication provider to be supplied. These modules must be passed into the enumeration module flag (`/e:, /enum:`).
 
 ```
-WinToken - Use the current users token to authenticate against the SQL database
-        /h:, /host: | SQL server hostname or IP
-        /database:  | (OPTIONAL) SQL server database name, defaults to 'master'
-        /port:      | (OPTIONAL) Defaults to 1433
+Info    - Show information about the SQL server.
+          /h:, /host    -> SQL server hostname or IP. Multiple hosts supported.
+          /port:        -> (OPTIONAL) Defaults to 1434 (UDP).
+          /t:, timeout: -> (OPTIONAL) Defaults to 3s.
 
-WinDomain - Use AD credentials to authenticate against the SQL database
-        /h:, /host:     | SQL server hostname or IP
-        /d:, /domain:   | NETBIOS name (DOMAIN) or FQDN of domain (DOMAIN.COM)
-        /u:, /username: | Username for domain user
-        /p:, /password: | Password for domain user
-        /database:      | (OPTIONAL) SQL server database name, defaults to 'master'
-        /port:          | (OPTIONAL) Defaults to 1433
+SqlSpns - Use the current user token to enumerate the AD domain for MSSQL SPNs.
+          /d:, /domain: -> (OPTIONAL) NETBIOS name or FQDN of domain.
+```
 
-Local - Use local SQL credentials to authenticate against the SQL database
-        /h:, /host:     | SQL server hostname or IP
-        /u:, /username: | Username for local SQL user
-        /p:, /password: | Password for local SQL user
-        /database:      | (OPTIONAL) SQL server database name, defaults to 'master'
-        /port:          | (OPTIONAL) Defaults to 1433
+# Authentication Providers
 
-AzureAD - Use Azure AD credentials to authenticate against the Azure SQL database
-        /h:, /host:     | SQL server hostname or IP
-        /d:, /domain:   | FQDN of domain (DOMAIN.COM)
-        /u:, /username: | Username for domain user
-        /p:, /password: | Password for domain user
-        /database:      | (OPTIONAL) SQL server database name, defaults to 'master'
+SQLRecon supports a diverse set of authentication providers (`/a:, /auth:`) to enable interacting with a Microsoft SQL Server.
+
+```
+WinToken   - Use the current users token to authenticate against the SQL database
+             /h:, /host:     -> SQL server hostname or IP
+
+WinDomain  - Use AD credentials to authenticate against the SQL database
+             /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
+             /d:, /domain:   -> NETBIOS name or FQDN of domain.
+             /u:, /username: -> Username for domain user.
+             /p:, /password: -> Password for domain user.
+
+Local      - Use local SQL credentials to authenticate against the SQL database
+             /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
+             /u:, /username: -> Username for local SQL user.
+             /p:, /password: -> Password for local SQL user.
+
+EntraID    - Use Azure EntraID credentials to authenticate against the Azure SQL database
+             /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
+             /d:, /domain:   -> FQDN of domain (DOMAIN.COM).
+             /u:, /username: -> Username for domain user.
+             /p:, /password: -> Password for domain user.
 
 AzureLocal - Use local SQL credentials to authenticate against the Azure SQL database
-        /h:, /host:     | SQL server hostname or IP
-        /u:, /username: | Username for local SQL user
-        /p:, /password: | Password for local SQL user
-        /database:      | (OPTIONAL) SQL server database name, defaults to 'master'
-        /port:          | (OPTIONAL) Defaults to 1433
+             /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
+             /u:, /username: -> Username for local SQL user.
+             /p:, /password: -> Password for local SQL user.
 ```
 
-There are cases where a Microsoft SQL Server might not be listening on a standard TCP port. Some examples are Microsoft SQL Server failover clustering, or dynamic TCP ports. SQLRecon supports setting non-standard connection port by supplying the port flag (`/port:`). By default, SQLRecon will connect to databases via TCP Port 1433.
+### Authentication Providers - Additional Details
 
-SQLRecon connects to the `master` database by default, however, this can be changed by supplying a custom database name via the database flag (`/database:`).
+- **Hosts**: The host flag (`/h:, host:`) is required and allows one or more SQL servers. If you want to execute a module against multiple SQL servers, separate the hosts with a comma, for example `/h:SQL01,10.10.10.2,SQL03`.
+- **Database**: SQLRecon connects to the `master` database by default, however, this can be optionally changed by supplying a custom database name via the database (`/database:`) flag.
+- **Debug**: The `/debug` flag is optional and displays all SQL queries that are executed by a module, without actually executing them on the remote host(s). An example of this can be found in the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.
+- **Port**: In some cases, a Microsoft SQL Server may not be listening on a standard TCP port. Some examples are Microsoft SQL Server failover clustering, or dynamic TCP ports. SQLRecon connects to databases via TCP Port `1433` by default, however, this can be optionally changed using the `/port:` flag.
+- **Timeout**: The default SQL database connection time is `3` seconds, however, this value can be optionally changed by supplying a timeout value (`/t:, /timeout:`) which corresponds to the number of seconds before terminating the connection attempt.
+- **Verbose**: The `/v, /verbose` flag is optional and displays all SQL queries that are executed by a module before executing them on the remote host(s). An example of this can be found in the <a href="https://github.com/skahwah/SQLRecon/wiki">wiki</a>.
 
-Please note that the `AzureAD` authentication provider reqires that the Azure Active Directory Authentication Library (ADAL) or Microsoft Authentication Library (MSAL) exists on the system SQLRecon is executed from. This is for Azure Active Directory authentication and authorization functionality.
+Please note that the `EntraID` authentication provider requires that the Azure Active Directory Authentication Library (ADAL) or Microsoft Authentication Library (MSAL) exists on the system SQLRecon is executed from. This is for Azure EntraID authentication and authorization functionality.
 
-## Standard Modules
+# SQL Modules
 
-Standard modules are executed against a single instance of Microsoft SQL server. Standard modules must be passed into the module flag (`/m:, /module:`).
+SQL modules are executed against one or more instance of Microsoft SQL server. These modules must be passed into the module flag (`/m:, /module:`).
 
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
+| Module Name | Description | Impersonation | Linked Execution | Linked Chain Execution | Requires Privileged Context |
+| ----------- | ----------- | ------------- | ---------------- | ---------------------- | --------------------------- |
+| `CheckRpc` | Obtain a list of linked servers and their RPC status. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Databases` | Display all databases. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Impersonate` | Enumerate user accounts that can be impersonated. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Info` | Show information about the SQL server. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Links` | Enumerate linked SQL servers. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Users` | Display what user accounts and groups can authenticate against the database. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Whoami` | Display your privileges. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Query /c:QUERY` | Execute a SQL query. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Smb /unc:UNC_PATH` | Capture NetNTLMv2 hash. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Columns /db:DATABASE /table:TABLE` | Display all columns in the supplied database and table. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Rows /db:DATABASE /table:TABLE` | Display the number of rows in the supplied database table. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Search /keyword:KEYWORD` | Search column names in the supplied table of the database you are connected to. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `Tables /db:DATABASE` | Display all tables in the supplied database. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
+| `EnableRpc /rhost:LINKED_HOST` | Enable RPC and RPC out on a linked server. | :white_check_mark: | :x: | :x: | :heavy_check_mark: |
+| `EnableClr` | Enable CLR integration. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `EnableOle` | Enable OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `EnableXp` | Enable xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `DisableRpc /rhost:LINKED_HOST` | Disable RPC and RPC out on a linked server. | :white_check_mark: | :x: | :x: | :heavy_check_mark: |
+| `DisableClr` | Disable CLR integration. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `DisableOle` | Disable OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `DisableXp` | Disable xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `AgentStatus` | Display if SQL agent is running and obtain agent jobs. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `AgentCmd /c:COMMAND` | Execute a system command using agent jobs. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT` | Obtain cleartext ADSI credentials from a linked ADSI server. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `Clr /dll:DLL /function:FUNCTION` | Load and execute a .NET assembly in a custom stored procedure. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `OleCmd /c:COMMAND /subsystem:(OPTIONAL)` | Execute a system command using OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `XpCmd /c:COMMAND` | Execute a system command using xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/3.-Standard-Modules">wiki</a>. 
+### SQL Modules - Standard
 
-```
-Info                                                     | Show information about the SQL server
-Query /c:QUERY                                           | Execute a SQL query
-Whoami                                                   | Display what user you are logged in as, mapped as and what roles exist
-Users                                                    | Display what user accounts and groups can authenticate against the database
-Databases                                                | Display all databases
-Tables /db:DATABASE                                      | Display all tables in the supplied database
-Columns /db:DATABASE /table:TABLE                        | Display all columns in the supplied database and table
-Rows /db:DATABASE /table:TABLE                           | Display the number of rows in the supplied database table
-Search /keyword:KEYWORD                                  | Search column names in the supplied table of the database you are connected to
-Smb /rhost:UNC_PATH                                      | Capture NetNTLMv2 hash
-Impersonate                                              | Enumerate user accounts that can be impersonated
-Links                                                    | Enumerate linked SQL servers
-CheckRpc                                                 | Obtain a list of linked servers and their RPC status
-[*] EnableRpc /rhost:LINKED_HOST                         | Enable RPC and RPC out on a linked server
-[*] DisableRpc /rhost:LINKED_HOST                        | Disable RPC and RPC out on a linked server
-[*] EnableXp                                             | Enable xp_cmdshell
-[*] DisableXp                                            | Disable xp_cmdshell
-[*] XpCmd /c:COMMAND                                     | Execute a system command using xp_cmdshell
-[*] EnableOle                                            | Enable OLE automation procedures
-[*] DisableOle                                           | Disable OLE automation procedures
-[*] OleCmd /c:COMMAND                                    | Execute a system command using OLE automation procedures
-[*] EnableClr                                            | Enable CLR integration
-[*] DisableClr                                           | Disable CLR integration
-[*] Clr /dll:DLL /function:FUNCTION                      | Load and execute a .NET assembly in a custom stored procedure
-[*] AgentStatus                                          | Display if SQL agent is running and obtain agent jobs
-[*] AgentCmd /c:COMMAND                                  | Execute a system command using agent jobs
-[*] Adsi /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a linked ADSI server
-```
+The host flag (`/h:, host:`) is required and allows one or more SQL servers. If you want to execute a module against multiple SQL servers, separate the hosts with a comma, for example `/h:SQL01,10.10.10.2,SQL03`.
 
-## Linked Modules
+The wiki has details on using each module which supports execution on one or more instance of <a href="https://github.com/skahwah/SQLRecon/wiki/3.-Standard-Modules">SQL Server</a>.
 
-Linked modules are executed on a linked Microsoft SQL server. 
+### SQL Modules - Impersonation
 
-All linked modules have the following minimum requirements:
-- A linked SQL server must be specified (`/l:, /lhost:`).
-- A linked module must be specified (`/m:, /module:`). 
-
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
-
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/4.-Linked-Modules">wiki</a>. 
-
-```
-lQuery /l:LINKED_HOST /c:QUERY                                           | Execute a SQL query
-lWhoami /l:LINKED_HOST                                                   | Display what user you are logged in as, mapped as and what roles exist
-lUsers /l:LINKED_HOST                                                    | Display what user accounts and groups can authenticate against the database
-lDatabases /l:LINKED_HOST                                                | Display all databases
-lTables /l:LINKED_HOST /db:DATABASE                                      | Display all tables in the supplied database
-lColumns /l:LINKED_HOST /db:DATABASE /table:TABLE                        | Display all columns in the supplied database and table
-lRows /l:LINKED_HOST /db:DATABASE /table:TABLE                           | Display the number of rows in the supplied database and table
-lSearch /l:LINKED_HOST /db:DATABASE /keyword:KEYWORD                     | Search column names in the supplied table of the database you are connected to
-lSmb /l:LINKED_HOST /rhost:UNC_PATH                                      | Capture NetNTLMv2 hash
-lLinks /l:LINKED_HOST                                                    | Enumerate linked SQL servers on a linked SQL server
-lCheckRpc /l:LINKED_HOST                                                 | Obtain a list of linked servers on the linked server and their RPC status
-[*] lEnableXp /l:LINKED_HOST                                             | Enable xp_cmdshell
-[*] lDisableXp /l:LINKED_HOST                                            | Disable xp_cmdshell
-[*] lXpCmd /l:LINKED_HOST /c:COMMAND                                     | Execute a system command using xp_cmdshell
-[*] lEnableOle /l:LINKED_HOST                                            | Enable OLE automation procedures
-[*] lDisableOle /l:LINKED_HOST                                           | Disable OLE automation procedures
-[*] lOleCmd /l:LINKED_HOST /c:COMMAND                                    | Execute a system command using OLE automation procedures
-[*] lEnableClr /l:LINKED_HOST                                            | Enable CLR integration
-[*] lDisableClr /l:LINKED_HOST                                           | Disable CLR integration
-[*] lClr /l:LINKED_HOST /dll:DLL /function:FUNCTION                      | Load and execute a .NET assembly in a custom stored procedure
-[*] lAgentStatus /l:LINKED_HOST                                          | Display if SQL agent is running and obtain agent jobs
-[*] lAgentCmd /l:LINKED_HOST /c:COMMAND                                  | Execute a system command using agent jobs
-[*] lAdsi /l:LINKED_HOST /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a double-linked ADSI server
-```
-
-## Impersonation Modules
-
-Impersonation modules are executed against a single instance of Microsoft SQL server, under the context of an impersonated SQL user.
-
-All impersonation modules have the following minimum requirements:
+Impersonation modules are executed against one or more instances of Microsoft SQL server, under the context of an impersonated SQL user. All impersonation modules have the following minimum requirements:
 - An impersonation user must be specified (`/i:, /iuser:`).
-- An impersonation module must be specified (`/m:, /module:`).
+- A module which supports impersonation must be specified (`/m:, /module:`).
 
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
+The wiki has details on using each module which supports execution using <a href="https://github.com/skahwah/SQLRecon/wiki/4.-Impersonation-Modules">Impersonation</a>.
 
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/5.-Impersonation-Modules">wiki</a>. 
+### SQL Modules - Linked
 
-```
-iQuery /i:IMPERSONATE_USER /c:QUERY                                           | Execute a SQL query
-iWhoami /i:IMPERSONATE_USER                                                   | Display what user you are logged in as, mapped as and what roles exist
-iUsers /i:IMPERSONATE_USER                                                    | Display what user accounts and groups can authenticate against the database
-iDatabases /i:IMPERSONATE_USER                                                | Display all databases
-iTables /i:IMPERSONATE_USER /db:DATABASE                                      | Display all tables in the supplied database
-iColumns /i:IMPERSONATE_USER /db:DATABASE /table:TABLE                        | Show all columns in the database and table you specify
-iRows /i:IMPERSONATE_USER /db:DATABASE /table:TABLE                           | Display the number of rows in the database and table you specify
-iSearch /i:IMPERSONATE_USER /keyword:KEYWORD                                  | Search column names in the supplied table of the database you are connected to
-iLinks /i:IMPERSONATE_USER                                                    | Enumerate linked SQL servers
-iCheckRpc /i:IMPERSONATE_USER                                                 | Obtain a list of linked servers and their RPC status
-[*] iEnableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST                         | Enable RPC and RPC out on a linked server
-[*] iDisableRpc /i:IMPERSONATE_USER /rhost:LINKED_HOST                        | Disable RPC and RPC out on a linked server
-[*] iEnableXp /i:IMPERSONATE_USER                                             | Enable xp_cmdshell
-[*] iDisableXp /i:IMPERSONATE_USER                                            | Disable xp_cmdshell
-[*] iXpCmd /i:IMPERSONATE_USER /c:COMMAND                                     | Execute a system command using xp_cmdshell
-[*] iEnableOle /i:IMPERSONATE_USER                                            | Enable OLE automation procedures
-[*] iDisableOle /i:IMPERSONATE_USER                                           | Disable OLE automation procedures
-[*] iOleCmd /i:IMPERSONATE_USER /c:COMMAND                                    | Execute a system command using OLE automation procedures
-[*] iEnableClr /i:IMPERSONATE_USER                                            | Enable CLR integration
-[*] iDisableClr /i:IMPERSONATE_USER                                           | Disable CLR integration
-[*] iClr /i:IMPERSONATE_USER /dll:DLL /function:FUNCTION                      | Load and execute a .NET assembly in a custom stored procedure
-[*] iAgentStatus /i:IMPERSONATE_USER                                          | Display if SQL agent is running and obtain agent jobs
-[*] iAgentCmd /i:IMPERSONATE_USER /c:COMMAND                                  | Execute a system command using agent jobs
-[*] iAdsi /i:IMPERSONATE_USER /rhost:ADSI_SERVER_NAME /lport:LDAP_SERVER_PORT | Obtain cleartext ADSI credentials from a linked ADSI server
-```
+Linked modules are executed on one or more instances of a linked Microsoft SQL server. All linked modules have the following minimum requirements:
+- A linked SQL server must be specified (`/l:, /link:`). The link flag allows one or more linked SQL servers. For example, if SQL01 has a link to SQL02, and SQL01 has a link to DB04, you can separate the linked hosts with a comma, and a module will be executed on each linked SQL server, for example `/l:SQL02,DB04`.
+- A module which supports linked execution must be specified (`/m:, /module:`). 
 
-## SCCM Modules
+The wiki has details on using each module which supports execution on one or more instance of a <a href="https://github.com/skahwah/SQLRecon/wiki/5.-Linked-Modules">Linked SQL Server</a>.
 
-SQLRecon has several modules that can assist with enumerating and attacking Microsoft System Center Configuration Manager (SCCM) and Microsoft Endpoint Configuration Manager (ECM). 
+### SQL Modules - Linked Chain
 
-SCCM modules must be passed into the module flag (`/m:, /module:`).
+Linked chain modules are executed on the final Microsoft SQL server in a linked server chain. All linked chain modules have the following minimum requirements:
+- A linked SQL server chain must be specified in the `/l:, /link:` flag. If SQL01 has a link to SQL02, and SQL02 has a link to PAYMENTS01, and you want to execute a module on PAYMENTS01, then the argument would be `/l:SQL02,PAYMENTS01`.
+- The `/chain` flag must be included to execute the module against the final SQL server in the supplied linked chain.
+- A module which supports linked chain execution must be specified (`/m:, /module:`).
 
-SCCM and ECM will need to have a Microsoft SQL database exposed either locally or remotely.
+The wiki has details on using each module which supports execution on the final SQL server supplied in a <a href="https://github.com/skahwah/SQLRecon/wiki/6.-Linked-Chain-Modules">Linked SQL Server Chain</a>.
 
-Modules starting with `[*]` require the sysadmin role or a similar privileged context.
+# SCCM Modules
 
-For detailed information on how to use each technique, refer to the <a href="https://github.com/skahwah/SQLRecon/wiki/6.-SCCM-Modules">wiki</a>. 
+SQLRecon has several modules that can assist with enumerating and attacking Microsoft System Center Configuration Manager (SCCM) and Microsoft Endpoint Configuration Manager (ECM). The SCCM or ECM server will need to have a Microsoft SQL database exposed either locally or remotely.
 
-```
-sUsers                                                | Display all SCCM users
-sSites                                                | Display all other sites with data stored
-sLogons /option:OPTIONAL_FILTER                       | Display all associated SCCM clients and the last logged in user
-sTaskList                                             | Display all task sequences, but do not access the task data contents
-sTaskData                                             | Decrypt all task sequences to plaintext
-sCredentials                                          | Display encrypted credentials vaulted by SCCM
-[*] sDecryptCredentials                               | Attempt to decrypt recovered SCCM credential blobs. Must be ran in a high-integrty or SYSTEM process on an SCCM server
-[*] sAddAdmin /user:DOMAIN\USERNAME /sid:SID          | This will elevate a supplied account to a 'Full Administrator' in SCCM
-[*] sRemoveAdmin /user:ADMIN_ID /remove:REMOVE_STRING | Removes privileges of a user, or remove a user entirely from the SCCM database
-```
+SCCM modules must be passed into the SCCM module flag (`/s:, /sccm:`).
 
-The table below contains additional information for each SCCM module:
+Most of the SCCM modules can be executed under the context of an impersonated SQL user (`/i:, /iuser:`).
 
-| Module | Description |
-| ------ | ----------- |
-| sUsers | Lists all users in the `RBAC_Admins` table. These are all users configured for some level of access to SCCM. |
-| sSites | Lists all other sites with data stored in the SCCM databases' `DPInfo` table. This can provide additional attack avenues as different sites can be configured in different (insecure) ways. |
-| sLogons | Queries the `Computer_System_DATA` table to retrieve all associated SCCM clients along with the user that last logged into them. <b>NOTE:</b> This only updates once a week by default and will not be 100% up to date. Use `/option:` as an optional (not required) argument to filter SCCM clients. |
-| sTaskList | Provides a list of all task sequences stored in the SCCM database, but does not access the actual task data contents. |
-| sTaskData | Recovers all task sequences stored in the SCCM database and decrypts them to plaintext. Task sequences can contain credentials for joining systems to domains, mapping shares, running commands, etc. |
-| sCredentials | Lists credentials vaulted by SCCM for use in various functions. These credentials can not be remotely decrypted as the key is stored on the SCCM server. However, this module provides intel on if it makes sense to attempt to obtain the key. |
-| sDecryptCredentials | Attempt to decrypt recovered SCCM credential blobs. This module must be ran in a high-integrty or SYSTEM process on an SCCM server. |
-| sAddAdmin | This module will elevate the specified account to a 'Full Administrator' within SCCM. If target user is already an SCCM user, this module will instead add necessary privileges to elevate. Provide two arguments, either `/user:current /sid:current` if seeking to add the user currently executing the SQLRecon process as a 'Full Administrator' in SCCM. If seeking to add another user as a 'Full Administrator' in SCCM, specify their domain user name and full SID `/user:DOMAIN\USERNAME /sid:S-1-5-...`.  This module require sysadmin or similar privileges as writing to SCCM database tables is required. |
-| sRemoveAdmin | This modlue removes the privileges of a user by removing a newly added user entirely from the SCCM database. If the user already existed in some capacity this module just removes the three roles that were added to the account via writes to the permission table. Use the arguments provided by output of the `sAddAdmin` command to run this command. This module require sysadmin or similar privileges as writing to SCCM database tables is required. |
+The wiki has details on using each module against an <a href="https://github.com/skahwah/SQLRecon/wiki/7.-SCCM-Modules">SCCM/ECM database</a>. 
 
-## Extending SQLRecon
 
-If you are interested in extending SQLRecon, refer to the write up in the <a href="https://github.com/skahwah/SQLRecon/wiki/7.-Contributing-and-Extending-SQLRecon">wiki</a>.
+| Module Name | Description | Impersonation | Requires Privileged Context |
+| ----------- | ----------- | ------------- | --------------------------- |
+| `Users` | Display all SCCM users. | :white_check_mark: | :negative_squared_cross_mark: |
+| `Sites` | Display all other sites with data stored. | :white_check_mark: | :negative_squared_cross_mark: |
+| `Logons` | Display all associated SCCM clients and the last logged in user. | :white_check_mark: | :negative_squared_cross_mark: |
+| `Credentials` | Display encrypted credentials vaulted by SCCM. | :white_check_mark: | :negative_squared_cross_mark: |
+| `TaskList` | Display all task sequences, but do not access the task data contents. | :white_check_mark: | :negative_squared_cross_mark: |
+| `TaskData` | Decrypt all task sequences to plaintext. | :white_check_mark: | :negative_squared_cross_mark: |
+| `DecryptCredentials` | Decrypt an SCCM credential blob. Must execute in a high-integrity or SYSTEM process on the SCCM server. | :x: | :heavy_check_mark: |
+| `AddAdmin /user:DOMAIN\USERNAME /sid:SID` | Elevate a supplied account to a 'Full Administrator' in SCCM. | :white_check_mark: | :heavy_check_mark: |
+| `RemoveAdmin /user:ADMIN_ID /remove:STRING` | Removes privileges of a user, or remove a user entirely from the SCCM database. | :white_check_mark: | :heavy_check_mark: |
 
-## History
+
+<details>
+<summary>SCCM Modules - Additional Details</summary>
+
+* The `Users` module lists all users in the `RBAC_Admins` table. These are all users configured for some level of access to SCCM.
+* The `Sites` module lists all other sites with data stored in the SCCM databases' `DPInfo` table. This can provide additional attack avenues as different sites can be configured in different (insecure) ways.
+* The `Logons` module queries the `Computer_System_DATA` table to retrieve all associated SCCM clients along with the user that last logged into them. <b>NOTE:</b> This only updates once a week by default and will not be 100% up to date. Use `/option:` as an optional (not required) argument to filter SCCM clients.
+* The `TaskList` module provides a list of all task sequences stored in the SCCM database, but does not access the actual task data contents.
+* The `TaskData` module recovers all task sequences stored in the SCCM database and decrypts them to plaintext. Task sequences can contain credentials for joining systems to domains, mapping shares, running commands, etc.
+* The `Credentials` module lists credentials vaulted by SCCM for use in various functions. These credentials can not be remotely decrypted as the key is stored on the SCCM server. However, this module provides intel on if it makes sense to attempt to obtain the key.
+* The `DecryptCredentials` module attempts to decrypt recovered SCCM credential blobs. This module must be ran in a high-integrty or SYSTEM process on an SCCM server.
+* The `AddAdmin` module elevates the specified account to a 'Full Administrator' within SCCM. If target user is already an SCCM user, this module will instead add necessary privileges to elevate. Provide two arguments, either `/user:current /sid:current` if seeking to add the user currently executing the SQLRecon process as a 'Full Administrator' in SCCM. If seeking to add another user as a 'Full Administrator' in SCCM, specify their domain user name and full SID `/user:DOMAIN\USERNAME /sid:S-1-5-...`.  This module require sysadmin or similar privileges as writing to SCCM database tables is required.
+* The `RemoveAdmin` module removes the privileges of a user by removing a newly added user entirely from the SCCM database. If the user already existed in some capacity this module just removes the three roles that were added to the account via writes to the permission table. Use the arguments provided by output of the `sAddAdmin` command to run this command. This module require sysadmin or similar privileges as writing to SCCM database tables is required.
+</details>
+
+# Extending SQLRecon
+
+If you are interested in extending SQLRecon, refer to the write up in the <a href="https://github.com/skahwah/SQLRecon/wiki/8.-Contributing-and-Extending-SQLRecon">wiki</a>.
+
+# History
+
+<details>
+<summary>Roadmap</summary>
+
+* NTLM hash based authentication.
+* Build in logic for CLR execution on SQL server 2016 and below.
+* Look into `enablerpc`/`disablerpc` on linked and linked chain servers.
+</details>
+
+<details>
+<summary>v3.7</summary>
+
+* Complete refactor of code base.
+* Updated documentation (code comments, README, and wiki)
+* Execution against a linked SQL server chain. For example, if `SQL01` has a link to `SQL02`, and `SQL02`, has a link to `SQL03`, and `SQL03`, has a link to `PAYMENTS01`. It is now possible to execute commands from `SQL01` on `PAYMENTS01` using the linked server chain (`/link:SQL02,SQL03,PAYMENTS01 /chain`). Credit to Azael Martin (n3rada).
+* Removed '`l`' and '`i`' modules, and introduced context logic so module names can be the same across standard, impersonation, linked and chained execution.
+* Added chain support to all linked modules.
+* Added support for debug (`/debug`), which will display various debugging information and all SQL queries that will be executed by a module, without executing them.
+* Added verbose (`/verbose, /v`), which will display all SQL queries that will be executed during module execution.
+* Added timeout (`/timeout, /t`), which takes an integer value for SQL server database connection timeout.
+* Improved `links` module to include detailed information. Credit to Azael Martin (n3rada). 
+* Improved `whoami` module to include Windows principals and database users. Credit to Azael Martin (n3rada). 
+* Improved `impersonation` module to include Windows principals and database users. Credit to Azael Martin (n3rada).
+* Added IP address retrieval into the `sqlspns` enumeration module. Credit to Azael Martin (n3rada). 
+* Standardized console output to markdown where applicable. Credit to Azael Martin (n3rada). 
+* Added DNS support to `/enum:info` module.
+* Added optional `/subsystem` argument to the `olecmdexec` module, which accepts execution using the `CmdExec` or `PowerShell` OLE automation subsystems.
+* Updated test harnesses to reflect CLI changes and new modules.
+* Changed `AzureAD` authentication to `EntraID`.
+</details>
+
+<details>
+<summary>v3.6</summary>
+
+* Execution against multiple SQL servers supplied in the `/host` or `/h` flag is now supported using comma separated values.
+* Execution against multiple linked SQL servers supplied in the `/link` or `/l` flag is now supported using comma separated values.
+* Changed `/lhost` to `/link`.
+* Removed '`s`' modules and created the `/s`, `/sccm` switch for SCCM modules.
+* Added impersonation support to all SCCM modules, with the exception of `DecryptCredentials`.
+* Added a new enumeration (`/enum`) module called `info` which is able to used an unauthenticated context to obtain SQL server information, including instance name and TCP port using the UDP protocol.
+* Moved argument logic into individual methods within `ModuleHandler.cs` to promote simplification and extensibility.
+* Moved all SQL queries to `Queries.cs`.
+* Created `EnumerationModules.cs`.
+* Created `FormatQuery.cs`.
+* Created `SccmModules.cs`.
+* Renamed `ModuleHandler.cs` to `SqlModules.cs`.
+</details>
+
+<details>
+<summary>v3.5</summary>
+
+* Bug fix where linked `adsi` execution was not removing the LDAP server.
+* Removed agent job execution from linked `adsi`, in favor of openquery/rpc.
+* Changed `/lhost` to `/adsi` in in `adsi` module.
+* Changed `/rhost` to `/unc` in `smb` module.
+* Removed `CaptureHash.cs` and simplified logic.
+* Removed `SetEnumerationType.cs` and simplified logic.
+* Renamed `Impersonation.cs` to `Impersonate.cs`.
+* Renamed `OleCmdExec.cs` to `OleAutomation.cs`.
+* Renamed `PrintUtils.cs` to `Print.cs`.
+* Renamed `SQLServerInfo.cs` to `Info.cs`.
+</details>
+
+<details>
+<summary>v3.4</summary>
+
+* Added impersonation support for `smb` module.
+* Added impersonation support for `info` module.
+* Added linked support for `info` module.
+</details>
 
 <details>
 <summary>v3.3</summary>
