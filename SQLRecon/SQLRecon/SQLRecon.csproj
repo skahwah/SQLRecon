@@ -99,30 +99,32 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="commands\ModuleHandler.cs" />
+    <Compile Include="commands\EnumerationModules.cs" />
+    <Compile Include="commands\SqlModules.cs" />
+    <Compile Include="commands\Queries.cs" />
+    <Compile Include="commands\SccmModules.cs" />
     <Compile Include="modules\ADSI.cs" />
-    <Compile Include="utilities\SetEnumerationType.cs" />
-    <Compile Include="utilities\PrintUtils.cs" />
+    <Compile Include="utilities\FormatQuery.cs" />
+    <Compile Include="utilities\Print.cs" />
     <Compile Include="utilities\SetAuthenticationType.cs" />
     <Compile Include="utilities\ArgumentLogic.cs" />
     <Compile Include="modules\AgentJobs.cs" />
     <Compile Include="modules\ConfigureOptions.cs" />
     <Compile Include="modules\GetDomainSPNs.cs" />
     <Compile Include="utilities\Random.cs" />
-    <Compile Include="modules\CaptureHash.cs" />
     <Compile Include="commands\GlobalVariables.cs" />
     <Compile Include="utilities\Help.cs" />
     <Compile Include="modules\CLRAssemblies.cs" />
-    <Compile Include="modules\OLECmdExec.cs" />
+    <Compile Include="modules\OleAutomation.cs" />
     <Compile Include="modules\SCCM.cs" />
-    <Compile Include="modules\SQLServerInfo.cs" />
+    <Compile Include="modules\Info.cs" />
     <Compile Include="modules\XPCmdShell.cs" />
     <Compile Include="modules\Roles.cs" />
     <Compile Include="modules\ExecuteQuery.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="utilities\DomainSearcher.cs" />
-    <Compile Include="utilities\Impersonation.cs" />
+    <Compile Include="utilities\Impersonate.cs" />
     <Compile Include="utilities\Ldap.cs" />
     <Compile Include="utilities\SQLAuthentication.cs" />
   </ItemGroup>

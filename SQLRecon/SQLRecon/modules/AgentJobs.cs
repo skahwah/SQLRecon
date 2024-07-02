@@ -1,44 +1,38 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
+using SQLRecon.Commands;
 using SQLRecon.Utilities;
 
 namespace SQLRecon.Modules
 {
-    internal class AgentJobs
+    internal abstract class AgentJobs
     {
-        private static readonly Configure _config = new();
-        private static readonly PrintUtils _print = new();
-        private static readonly RandomString _rs = new();
-        private static readonly SqlQuery _sqlQuery = new();
-
         /// <summary>
         /// The GetAgentStatusAndJobs method checks to see if the SQL Server Agent is running.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
         /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
-        public void GetAgentStatusAndJobs(SqlConnection con, string sqlServer, string impersonate = "null")
+        internal static void GetAgentStatusAndJobs(SqlConnection con, string sqlServer, string impersonate = null)
         {
             // Identify if the SQL agent is running on the SQL server, use impersonation
             // if specified, if not, check the status of the agent normally.
-            string sqlOutput = (impersonate.Equals("null")) 
+            bool checkAgentStatus = (string.IsNullOrEmpty(impersonate)) 
                 ? _agentStatus(con, sqlServer) 
                 : _agentStatus(con, sqlServer, impersonate);
 
-            if (sqlOutput.Contains("1"))
+            if (checkAgentStatus)
             {
-                _print.Status(string.Format("SQL agent is running on {0}.", sqlServer), true);
+                Print.Status($"SQL agent is running on {sqlServer}.", true);
 
                 // If the SQL agent is running on the SQL server, retrieve the jobs,
                 // Use impersonation if specified, if not, retrieve the jobs normally.
-                sqlOutput = (impersonate.Equals("null")) 
+                string sqlOutput = (string.IsNullOrEmpty(impersonate)) 
                     ? _getAgentjobs(con, sqlServer) 
                     : _getAgentjobs(con, sqlServer, impersonate);
                 
-                Console.WriteLine(sqlOutput);
-            }
-            else
-            {
                 Console.WriteLine(sqlOutput);
             }
         }
@@ -46,239 +40,212 @@ namespace SQLRecon.Modules
         /// <summary>
         /// The GetLinkedAgentStatusAndJobs method checks to see if the SQL Server Agent
         /// is running on a Linked SQL Server.
+        /// Execution against the last SQL server specified in a chain of linked SQL servers is supported.
         /// </summary>
-        /// <param> 
         /// <param name="con"></param>
         /// <param name="linkedSqlServer"></param>
-        /// </param>
-        public void GetLinkedAgentStatusAndJobs(SqlConnection con, string linkedSqlServer)
+        /// <param name="linkedSqlServerChain"></param>
+        internal static void GetLinkedAgentStatusAndJobs(SqlConnection con, string linkedSqlServer, string[] linkedSqlServerChain = null)
         {
-            string sqlOutput = _linkedAgentStatus(con, linkedSqlServer);
-
-            if (sqlOutput.ToLower().Contains("1"))
+            if (linkedSqlServerChain == null)
             {
-
-                _print.Status(string.Format("SQL agent is running on {0}.", linkedSqlServer), true);
+                if (!_linkedAgentStatus(con, linkedSqlServer)) return;
+                
+                Print.Status($"SQL agent is running on {linkedSqlServer}.", true);
                 Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer));
             }
             else
             {
-                Console.WriteLine(sqlOutput);
+                if (!_linkedAgentStatus(con, linkedSqlServer, linkedSqlServerChain)) return;
+                
+                Print.Status($"SQL agent is running on {linkedSqlServerChain.Last()}.", true);
+                Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer, linkedSqlServerChain));
             }
         }
 
         /// <summary>
-        /// The Standard method will create a new Agent Job that will execute
-        /// a supplied command using PowerShell.
+        /// The StandardOrImpersonation method will create a new Agent Job that will execute
+        /// a supplied command using a subsystem, such as PowerShell. Impersonation is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
+        /// <param name="subSystem"></param>
         /// <param name="command">The commmand to execute on the remote SQL Server</param>
-        public void Standard(SqlConnection con, string sqlServer, string command)
+        /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
+        internal static void StandardOrImpersonation(SqlConnection con, string sqlServer, string subSystem, string command, string impersonate = null)
         {
-            // First check to see if agent is running, if it is not then gracefully exit.
-            string sqlOutput = _agentStatus(con, sqlServer);
-
-            if (!sqlOutput.Contains("1"))
+            // Generate a new random 8 character job name and program name
+            string jobName = RandomStr.Generate(8); 
+            string stepName = RandomStr.Generate(8);
+            
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            { 
+                { "create_job", string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command) },
+                { "execute_job", string.Format(Query.ExecuteAgentJob, jobName) },
+                { "delete_job",  string.Format(Query.DeleteAgentJob, jobName) }
+            };
+            
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            if (!string.IsNullOrEmpty(impersonate))
             {
-                _print.Error(string.Format("The SQL agent is not running on {0}.", sqlServer), true);
+                queries = Format.ImpersonationDictionary(impersonate, queries);
+            }
+            
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            }  
+            
+            // First check to see if agent is running, if it is not then gracefully exit.
+            // Impersonation is considered.
+            bool checkAgentStatus =  (string.IsNullOrEmpty(impersonate))
+                ? _agentStatus(con, sqlServer)
+                : _agentStatus(con, sqlServer, impersonate);
+            
+            if (checkAgentStatus == false)
+            {
                 // Go no further.
                 return;
             }
-
-            // Generate a new random 8 character job name and program name
-            string jobName = _rs.Generate(8); 
-            string stepName = _rs.Generate(8);
-
-            _print.Status(string.Format("Setting job_name to '{0}'.", jobName), true);
-            _print.Status(string.Format("Setting step_name to '{0}'.", stepName), true);
+            
+            Print.Status($"Setting job_name to '{jobName}'.", true);
+            Print.Status($"Setting step_name to '{stepName}'.", true);
 
             // Create a new SQL Agent job with the supplied command.
-            _sqlQuery.ExecuteQuery(con, "use msdb;" +
-                "EXEC dbo.sp_add_job @job_name = '" + jobName + "';" +
-                "EXEC sp_add_jobstep @job_name = '" + jobName + "', " +
-                "@step_name = '" + stepName + "', " +
-                "@subsystem = 'PowerShell', " +
-                "@command = '" + command + "', " +
-                "@retry_attempts = 1, " +
-                "@retry_interval = 5;" +
-                "EXEC dbo.sp_add_jobserver @job_name = '" + jobName + "';");
-
-            // Display all jobs.
-            sqlOutput = _getAgentjobs(con, sqlServer);
+            // Impersonation is considered.
+            Sql.Query(con, queries["create_job"]);
+            
+            // Display all jobs. Impersonation is considered.
+            string sqlOutput = (string.IsNullOrEmpty(impersonate))
+                ? _getAgentjobs(con, sqlServer)
+                : _getAgentjobs(con, sqlServer, impersonate);
+            
             Console.WriteLine(sqlOutput);
 
             if (sqlOutput.ToLower().Contains(jobName.ToLower()))
             {
-                _print.Status(string.Format("Executing job '{0}' and waiting for 5 seconds ...", jobName), true);
+                Print.Status($"Executing job '{jobName}' and waiting for 5 seconds ...", true);
 
-                _sqlQuery.ExecuteQuery(con, "use msdb;" +
-                    "EXEC dbo.sp_start_job '" + jobName + "'; " +
-                    "WAITFOR DELAY '00:00:05';");
+                // Execute created job. Impersonation is considered.
+                Sql.Query(con, queries["execute_job"]);
 
-                // Delete job after it has executed.
-                _sqlQuery.ExecuteQuery(con, "use msdb;" +
-                    "EXEC dbo.sp_delete_job  @job_name = '" + jobName + "';");
+                // Delete job after it has executed. Impersonation is considered.
+                Sql.Query(con, queries["delete_job"]);
 
-                // Display all jobs.
-                Console.WriteLine(_getAgentjobs(con, sqlServer));
-                _print.Success(string.Format("Deleting job '{0}' on {1}.", jobName, sqlServer), true);
+                // Display all jobs. Impersonation is considered.
+                sqlOutput = (string.IsNullOrEmpty(impersonate))
+                    ? _getAgentjobs(con, sqlServer)
+                    : _getAgentjobs(con, sqlServer, impersonate);
+                
+                Console.WriteLine(sqlOutput);
+                
+                Print.Success($"Deleted job '{jobName}' on {sqlServer}.", true);
             }
             else if (sqlOutput.Contains("permission"))
             {
-                _print.Error(string.Format("The current user does not have permissions to create new jobs on {0}.", sqlServer), true);
+                Print.Error($"The current user does not have permissions to create new jobs on {sqlServer}.", true);
             }
             else
             {
-                _print.Error(string.Format("Unable to create new job '{0}' on {1}.", jobName, sqlServer), true);
+                Print.Error($"Unable to create new job '{jobName}' on {sqlServer}.", true);
             }
         }
 
         /// <summary>
-        /// The Impersonate method will create a new Agent Job that will execute
-        /// a supplied command using PowerShell and using impersonation.
-        /// </summary>
-        /// <param name="con"></param>
-        /// <param name="sqlServer"></param>
-        /// <param name="command"></param>
-        /// <param name="impersonate"></param>
-        public void Impersonate(SqlConnection con, string sqlServer, string command, string impersonate)
-        {
-            string sqlOutput = _agentStatus(con, sqlServer, impersonate);
-
-            // First check to see if agent is running, if it is not then gracefully exit.
-            if (!sqlOutput.Contains("1"))
-            {
-                _print.Error(string.Format("The SQL agent is not running on {0}.", sqlServer), true);
-                // Go no further.
-                return;
-            }
-
-            // Generate a new random 8 character job name and program name.
-            string jobName = _rs.Generate(8);
-            string stepName = _rs.Generate(8);
-
-            _print.Status(string.Format("Setting job_name to '{0}'.", jobName), true);
-            _print.Status(string.Format("Setting step_name to '{0}'.", stepName), true);
-
-            _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                "use msdb;" +
-                "EXEC dbo.sp_add_job @job_name = '" + jobName + "';" +
-                "EXEC sp_add_jobstep @job_name = '" + jobName + "', " +
-                "@step_name = '" + stepName + "', " +
-                "@subsystem = 'PowerShell', " +
-                "@command = '" + command + "', " +
-                "@retry_attempts = 1, " +
-                "@retry_interval = 5;" +
-                "EXEC dbo.sp_add_jobserver @job_name = '" + jobName + "';");
-
-            // Display all jobs.
-            sqlOutput = _getAgentjobs(con, sqlServer, impersonate);
-            Console.WriteLine(sqlOutput);
-
-            if (sqlOutput.ToLower().Contains(jobName.ToLower()))
-            {
-                _print.Status(string.Format("Executing job '{0}' and waiting for 5 seconds ...", jobName), true);
-
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                    "use msdb;" +
-                    "EXEC dbo.sp_start_job '" + jobName + "';" +
-                    " WAITFOR DELAY '00:00:05';");
-
-                // Delete job after it has executed.
-                _sqlQuery.ExecuteImpersonationQuery(con, impersonate,
-                    "use msdb; " +
-                    "EXEC dbo.sp_delete_job  @job_name = '" + jobName + "';");
-
-                // Display all jobs.
-                Console.WriteLine(_getAgentjobs(con, sqlServer, impersonate));
-                _print.Success(string.Format("Deleting job '{0}' on {1}.", jobName, sqlServer), true);
-            }
-            else if (sqlOutput.Contains("permission"))
-            {
-                _print.Error(string.Format("The current user does not have permissions to create new jobs on {0}.", sqlServer), true);
-            }
-            else
-            {
-                _print.Error(string.Format("Unable to create new job '{0}' on {1}.", jobName, sqlServer), true);
-            }
-        }
-
-        /// <summary>
-        /// The Linked method will create a new Agent Job that will execute
+        /// The LinkedOrChain method will create a new Agent Job that will execute
         /// a supplied command using a subsystem, such as PowerShell on a Linked SQL Server.
+        /// Execution against the last SQL server specified in a chain of linked SQL servers is supported.
         /// </summary>
         /// <param name="con"></param>
         /// <param name="linkedSqlServer"></param>
         /// <param name="subSystem"></param>
         /// <param name="command"></param>
         /// <param name="sqlServer"></param>
-        public void Linked(SqlConnection con, string linkedSqlServer, string subSystem, string command, string sqlServer)
+        /// <param name="linkedSqlServerChain"></param>
+        internal static void LinkedOrChain(SqlConnection con, string linkedSqlServer, string subSystem, string command, string sqlServer, string[] linkedSqlServerChain = null)
         {
-            string sqlOutput = _linkedAgentStatus(con, linkedSqlServer);
-
-            // First check to see if agent is running, if it is not then gracefully exit.
-            if (!sqlOutput.Contains("1"))
+            // Generate a new random 8 character job name and program name
+            string jobName = RandomStr.Generate(8); 
+            string stepName = RandomStr.Generate(8);
+            
+            // The queries dictionary contains all queries used by this module
+            // The dictionary key name for RPC formatted queries must start with RPC 
+            Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                _print.Error(string.Format("The SQL agent is not running on {0}.", linkedSqlServer), true);
+                { "rpc_create_job" ,string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command ) },  
+                { "rpc_execute_job" ,string.Format(Query.ExecuteAgentJob, jobName) },  
+                { "rpc_delete_job" ,string.Format(Query.DeleteAgentJob, jobName) }  
+            };
+
+            if (linkedSqlServerChain == null)
+            {
+                // Format all queries so that they are compatible for execution on a linked SQL server.
+                queries = Format.LinkedDictionary(linkedSqlServer, queries);
+            }
+            else
+            {
+                // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
+                queries = Format.LinkedChainDictionary(linkedSqlServerChain, queries);
+                linkedSqlServer = linkedSqlServerChain.Last();
+            }
+            
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Go no further
+                return;
+            }
+            
+            // First check to see if agent is running, if it is not then gracefully exit.
+            if (_linkedAgentStatus(con, linkedSqlServer, linkedSqlServerChain) == false)
+            {
                 // Go no further.
                 return;
             }
 
             // Then check to see if rpc is enabled.
-            sqlOutput = _config.ModuleStatus(con, "rpc", "null", linkedSqlServer);
-            if (!sqlOutput.Contains("1"))
+            if (Config.ModuleStatus(con, "rpc", null, linkedSqlServer) == false)
             {
-                _print.Error(string.Format("You need to enable RPC for {1} on {0} (enablerpc -o {1}).",
-                    sqlServer, linkedSqlServer), true);
-                // Go no futher.
+                Print.Error($"You need to enable RPC for {linkedSqlServer} on {sqlServer} (/m:enablerpc /rhost:{linkedSqlServer}).", true);
+                // Go no further.
                 return;
             }
+            
+            Print.Status($"Setting job_name to '{jobName}'.", true);
+            Print.Status($"Setting step_name to '{stepName}'.", true);
 
-            // Generate a new random 8 character job name and program name.
-            string jobName = _rs.Generate(8);
-            string stepName = _rs.Generate(8);
-
-            _print.Status(string.Format("Setting job_name to '{0}'.", jobName), true);
-            _print.Status(string.Format("Setting step_name to '{0}'.", stepName), true);
-
-            _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                "EXEC dbo.sp_add_job @job_name = ''" + jobName + "'';" +
-                "EXEC dbo.sp_add_jobstep @job_name = ''" + jobName + "'', " +
-                "@step_name = ''" + stepName + "'', " +
-                "@subsystem = ''" + subSystem + "'', " +
-                "@command = ''" + command + "'', " +
-                "@retry_attempts = 1, " +
-                "@retry_interval = 5;" +
-                "EXEC dbo.sp_add_jobserver @job_name = ''" + jobName + "'';");
+            Sql.CustomQuery(con, queries["rpc_create_job"]);
 
             // Display all jobs.
-            sqlOutput = _getLinkedAgentJobs(con, linkedSqlServer);
+            string sqlOutput = _getLinkedAgentJobs(con, linkedSqlServer, linkedSqlServerChain);
+            
             Console.WriteLine(sqlOutput);
 
             if (sqlOutput.ToLower().Contains(jobName.ToLower()))
             {
-                _print.Status(string.Format("Executing job '{0}' and waiting for 5 seconds ...", jobName), true);
+                Print.Status($"Executing job '{jobName}' and waiting for 5 seconds ...", true);
 
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                    "EXEC dbo.sp_start_job ''" + jobName + "''; " +
-                    "WAITFOR DELAY ''00:00:05'';");
+                Sql.CustomQuery(con, queries["rpc_execute_job"]);
 
                 // Delete job after it has executed.
-                _sqlQuery.ExecuteLinkedCustomQueryRpcExec(con, linkedSqlServer, "use msdb;" +
-                    "EXEC dbo.sp_delete_job  @job_name = ''" + jobName + "'';");
+                Sql.CustomQuery(con, queries["rpc_delete_job"]);
 
                 // Display all jobs.
-                Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer));
-                _print.Success(string.Format("Deleting job '{0}' on {1}.", jobName, linkedSqlServer), true);
+                Console.WriteLine(_getLinkedAgentJobs(con, linkedSqlServer, linkedSqlServerChain));
+                
+                Print.Success($"Deleting job '{jobName}' on {linkedSqlServer}.", true);
             }
             else if (sqlOutput.Contains("permission"))
             {
-                _print.Error(string.Format("The current user does not have permissions to create new jobs on {0}.", linkedSqlServer), true);
+                Print.Error($"The current user does not have permissions to create new jobs on {linkedSqlServer}.", true);
             }
             else
             {
-                _print.Error(string.Format("Unable to create new job '{0}' on {1}.", jobName, linkedSqlServer), true);
+                Print.Error($"Unable to create new job '{jobName}' on {linkedSqlServer}.", true);
             }
         }
 
@@ -288,58 +255,93 @@ namespace SQLRecon.Modules
         /// <param name="con"></param>
         /// <param name="sqlServer"></param>
         /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
-        /// <returns>All agent jobs running on the specified SQL server.</returns>
-        private string _agentStatus(SqlConnection con, string sqlServer, string impersonate = "null")
+        /// <returns>Agent status on the remote SQL server</returns>
+        private static bool _agentStatus(SqlConnection con, string sqlServer, string impersonate = null)
         {
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "agent_status", Query.GetAgentStatus }
+            };
+            
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            if (!string.IsNullOrEmpty(impersonate))
+            {
+                queries = Format.ImpersonationDictionary(impersonate, queries);
+            }
+
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Falsify that the agent is running so that _getAgentjobs can be entered via GetAgentStatusAndJobs.
+                return true;
+            }  
+            
             // Identify if the SQL agent is running on the SQL server, use impersonation
             // if specified, if not, check the status of the agent normally.
-            string sqlOutput = (impersonate.Equals("null"))
-                ? _sqlQuery.ExecuteCustomQuery(con,
-                    "SELECT dss.[status], dss.[status_desc] FROM sys.dm_server_services dss " +
-                    "WHERE dss.[servicename] LIKE 'SQL Server Agent (%';")
-                : _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                    "SELECT dss.[status], dss.[status_desc] FROM sys.dm_server_services dss " +
-                    "WHERE dss.[servicename] LIKE 'SQL Server Agent (%';");
-
+            string sqlOutput = Sql.CustomQuery(con, queries["agent_status"]);
+            
             if (sqlOutput.ToLower().Contains("running"))
             {
-                return "1";
+                return true;
             }
             else if (sqlOutput.ToLower().Contains("permission"))
             {
-                return _print.Error(string.Format("The current user does not have permissions to view agent information on {0}.", sqlServer));
+                Print.Error($"The current user does not have permissions to view agent information on {sqlServer}.", true);
+                return false; 
+                    
             }
             else
             {
-                return _print.Status(string.Format("SQL agent is not running on {0}.", sqlServer));
+                Print.Status($"SQL agent is not running on {sqlServer}.", true);
+                return false;
             }
         }
 
         /// <summary>
         /// The _linkedAgentStatus method checks to see if the SQL Agent is running on the Linked SQL server
         /// </summary>
-        /// <param> 
         /// <param name="con"></param>
         /// <param name="linkedSqlServer"></param>
-        /// </param>
-        /// <returns></returns>
-        private string _linkedAgentStatus(SqlConnection con, string linkedSqlServer)
+        /// <param name="linkedSqlServerChain"></param>
+        /// <returns>Agent status on the specified linked SQL server.</returns>
+        private static bool _linkedAgentStatus(SqlConnection con, string linkedSqlServer, string[] linkedSqlServerChain = null)
         {
-            string sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT dss.[status], dss.[status_desc]" +
-                "FROM sys.dm_server_services dss WHERE dss.[servicename] LIKE ''SQL Server Agent (%'';");
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "agent_status", Query.GetAgentStatus }
+            };
+
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Falsify that the agent is running so that _getLinkedAgentjobs can be entered via GetLinkedAgentStatusAndJobs.
+                return true;
+            }
+            
+            queries = (linkedSqlServerChain == null) 
+                // Format all queries so that they are compatible for execution on a linked SQL server.
+                ? Format.LinkedDictionary(linkedSqlServer, queries)
+                // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
+                : Format.LinkedChainDictionary(linkedSqlServerChain, queries);
+            
+            string sqlOutput = Sql.CustomQuery(con, queries["agent_status"]);
 
             if (sqlOutput.ToLower().Contains("running"))
             {
-                return "1";
+                return true;
             }
             else if (sqlOutput.ToLower().Contains("permission"))
             {
-                return _print.Error(string.Format("The current user does not have permissions to view agent information on {0}.", linkedSqlServer));
+                Print.Error($"The current user does not have permissions to view agent information on {linkedSqlServer}.", true);
+                return false;
             }
             else
             {
-                return _print.Status(string.Format("SQL agent is not running on {0}.", linkedSqlServer));
+                Print.Status($"SQL agent is not running on {linkedSqlServer}.", true);
+                return false;
             }
         }
 
@@ -350,54 +352,94 @@ namespace SQLRecon.Modules
         /// <param name="sqlServer"></param>
         /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
         /// <returns>All agent jobs running on the specified SQL server.</returns>
-        private string _getAgentjobs(SqlConnection con, string sqlServer, string impersonate = "null")
+        private static string _getAgentjobs(SqlConnection con, string sqlServer, string impersonate = null)
         {
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "agent_jobs", Query.GetAgentJobs }
+            };
+            
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            if (!string.IsNullOrEmpty(impersonate))
+            {
+                queries = Format.ImpersonationDictionary(impersonate, queries);
+            }
+
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
+            {
+                // Falsify that the agent is running so that _getAgentjobs can be entered.
+                return "1";
+            }  
+            
             // If the SQL agent is running on the SQL server, retrieve the jobs,
             // Use impersonation if specified, if not, retrieve the jobs normally.
-            string sqlOutput = (impersonate.Equals("null"))
-                ? _sqlQuery.ExecuteCustomQuery(con, "SELECT job_id, name, enabled, " +
-                "date_created, date_modified FROM msdb.dbo.sysjobs ORDER BY date_created")
-                : _sqlQuery.ExecuteImpersonationCustomQuery(con, impersonate,
-                "SELECT job_id, name, enabled, date_created, date_modified FROM msdb.dbo.sysjobs ORDER BY date_created");
+            string sqlOutput =  Sql.CustomQuery(con, queries["agent_jobs"]);
 
             if (sqlOutput.ToLower().Contains("job_id"))
             {
-                return _print.Status(string.Format("Agent Jobs on {0}\n{1}", sqlServer, sqlOutput));
+                return Print.Status($"Agent Jobs on {sqlServer}\n\n{sqlOutput}"); 
             }
             else if (sqlOutput.ToLower().Contains("permission"))
             {
-                return _print.Error(string.Format("The current user does not have permissions to view agent information on {0}.", sqlServer));
+                return Print.Error($"The current user does not have permissions to view agent information on {sqlServer}.");
             }
             else
             {
-                return _print.Status(string.Format("There are no jobs on {0}.", sqlServer));
+                return Print.Status($"There are no jobs on {sqlServer}.");
             }
         }
 
         /// <summary>
         /// The _getLinkedAgentjobs method is responsible for gathering SQL Agent jobs from Linked SQL servers.
+        /// Execution against the last SQL server specified in a chain of linked SQL servers is supported.
         /// </summary>
-        /// <param> 
         /// <param name="con"></param>
         /// <param name="linkedSqlServer"></param>
-        /// /// </param>
+        /// <param name="linkedSqlServerChain"></param>
         /// <returns>All agent jobs running on the Linked SQL server.</returns>
-        private string _getLinkedAgentJobs(SqlConnection con, string linkedSqlServer)
+        private static string _getLinkedAgentJobs(SqlConnection con, string linkedSqlServer, string[] linkedSqlServerChain = null)
         {
-            string sqlOutput = _sqlQuery.ExecuteLinkedCustomQuery(con, linkedSqlServer,
-                "SELECT job_id, name, enabled, date_created, date_modified FROM msdb.dbo.sysjobs ORDER BY date_created");
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "agent_jobs", Query.GetAgentJobs }
+            };
 
-            if (sqlOutput.ToLower().Contains("job_id"))
+            // If /debug is provided, only print the queries then gracefully exit the program.
+            if (Print.DebugQueries(queries))
             {
-                return _print.Status(string.Format("Agent Jobs on {0}\n{1}", linkedSqlServer, sqlOutput));
+                // Falsify that the agent is running so that _getLinkedAgentjobs can be entered.
+                return "1";
             }
-            else if (sqlOutput.ToLower().Contains("permission"))
+
+            if (linkedSqlServerChain == null)
             {
-                return _print.Error(string.Format("The current user does not have permissions to view agent information on {0}.", linkedSqlServer));
+                // Format all queries so that they are compatible for execution on a linked SQL server.
+                queries = Format.LinkedDictionary(linkedSqlServer, queries);
             }
             else
             {
-                return _print.Status(string.Format("There are no jobs on {0}.", linkedSqlServer));
+                // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
+                queries = Format.LinkedChainDictionary(linkedSqlServerChain, queries);
+                linkedSqlServer = linkedSqlServerChain.Last();
+            }
+            
+            string sqlOutput = Sql.CustomQuery(con, queries["agent_jobs"]);
+
+            if (sqlOutput.ToLower().Contains("job_id"))
+            {
+                return Print.Status($"Agent Jobs on {linkedSqlServer}\n\n{sqlOutput}");
+            }
+            else if (sqlOutput.ToLower().Contains("permission"))
+            {
+                return Print.Error($"The current user does not have permissions to view agent information on {linkedSqlServer}.");
+            }
+            else
+            {
+                return ($"There are no jobs on {linkedSqlServer}.");
             }
         }
     }

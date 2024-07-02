@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
+using SQLRecon.Commands;
 using SQLRecon.Utilities;
 
 namespace SQLRecon
 {
-    class Program
+    internal abstract class Program
     {
         static void Main(string[] args)
         {
@@ -16,42 +16,44 @@ namespace SQLRecon
             {
                 try
                 {
-                    // Take arguments supplied via the command line and parse them into a dictionary.
-                    Dictionary<string, string> parsedArgs = ArgumentLogic.ParseArguments(args);
-
-                    /* The ParseArguments method will return a key and value pairing of "Error"
-                     * if any errors have been encountered during parsing. This is used as an
-                     * indicator to gracefully exit the program.
-                     */
-                    if (parsedArgs.ContainsKey("Error") && parsedArgs.ContainsValue("Error"))
-                        // Go no further
-                        return;
-
-                    if (parsedArgs.ContainsKey("auth"))
+                    // Take arguments supplied via the command line, parse them, and assign to 
+                    // global variables located in GlobalVariables.cs.
+                    ArgumentLogic.ParseArguments(args);
+                    
+                    // Enumeration modules do not need SQL authentication to be set.
+                    if (Var.ParsedArguments.ContainsKey("enum"))
+                    {
+                        ArgumentLogic.EvaluateEnumerationModuleArguments();
+                    }
+                    // SQL modules need SQL authentication to be set.
+                    else if (Var.ParsedArguments.ContainsKey("module"))
                     {
                         // Set the authentication type, if conditions have passed, evaluate the arguments.
-                        if (SetAuthenticationType.EvaluateAuthenticationType(parsedArgs))
-                            ArgumentLogic.EvaluateTheArguments(parsedArgs);
+                        if (SetAuthenticationType.EvaluateAuthenticationType(Var.AuthenticationType))
+                        {
+                            ArgumentLogic.EvaluateSqlModuleArguments();
+                        }
                     }
-                    else if (parsedArgs.ContainsKey("enum"))
+                    // SCCM modules need SQL authentication to be set.
+                    else if (Var.ParsedArguments.ContainsKey("sccm"))
                     {
-                        SetEnumerationType.EvaluateEnumerationType(parsedArgs);
+                        // Set the authentication type, if conditions have passed, evaluate the arguments.
+                        if (SetAuthenticationType.EvaluateAuthenticationType(Var.AuthenticationType))
+                        {
+                            ArgumentLogic.EvaluateSccmModuleArguments();
+                        }
                     }
                     else
                     {
-                        Console.WriteLine("Use the '/help' flag to display the help menu.");
-                        // Go no further
-                        return;
+                        // Go no further.
+                        Print.Error("Use the '/help' flag to display the help menu.", true);
                     }
                 }
                 catch (Exception)
                 {
                     // Go no further.
-                    return;
                 }
             }
-        } 
-
-
+        }
     }
 }

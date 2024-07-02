@@ -1,29 +1,30 @@
 ﻿using System;
 using System.Data.SqlClient;
+using SQLRecon.Commands;
 
 namespace SQLRecon.Utilities
 {
-    internal class SqlAuthentication
+    internal abstract class SqlAuthentication
     {
-        private static readonly PrintUtils _print = new();
         private static string _connectionString;
-
+        
         /// <summary>
-        /// The WindowsToken method uses the processes current Windows token
+        /// The WindowsToken method uses Windows token in the current process
         /// to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
         /// <param name="database"></param>
         /// <returns>A valid SQL connection object that is used to authenticate against databases.</returns>
-        public SqlConnection WindowsToken(string sqlServer, string database)
+        internal static SqlConnection WindowsToken(string sqlServer, string database)
         {
-            _connectionString = string.Format("Server={0}; Database={1}; Integrated Security=True;", sqlServer, database);
+            _connectionString = $"Server={sqlServer}; Database={database}; Integrated Security=True;";
+            
             return _authenticateToDatabase(_connectionString, System.Security.Principal.WindowsIdentity.GetCurrent().Name, sqlServer);
         }
 
         /// <summary>
         /// The WindowsDomain method uses cleartext AD domain credentials in conjunction with impersonation
-        /// to create a Windows token, which is used to  authenticate to a supplied database.
+        /// to create a Windows token, which is used to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
         /// <param name="database"></param>
@@ -31,13 +32,14 @@ namespace SQLRecon.Utilities
         /// <param name="user"></param>
         /// <param name="password"></param>
         /// <returns>A valid SQL connection object that is used to authenticate against databases.</returns>
-        public SqlConnection WindowsDomain(string sqlServer, string database, string domain, string user, string password)
+        internal static SqlConnection WindowsDomain(string sqlServer, string database, string domain, string user, string password)
         {
-            using (new Impersonation (domain, user, password))
+            using (new Impersonate (domain, user, password))
             {
-                _connectionString = string.Format("Server={0}; Database={1}; Integrated Security=True;", sqlServer, database);
-                return _authenticateToDatabase(_connectionString, string.Format("{0}\\{1}", domain, user), sqlServer);
-            } 
+                _connectionString = $"Server={sqlServer}; Database={database}; Integrated Security=True;";
+                
+                return _authenticateToDatabase(_connectionString, $"{domain}\\{user}", sqlServer);
+            }
         }
 
         /// <summary>
@@ -49,14 +51,15 @@ namespace SQLRecon.Utilities
         /// <param name="user"></param>
         /// <param name="password"></param>
         /// <returns>A valid SQL connection object that is used to authenticate against databases.</returns>
-        public SqlConnection LocalAuthentication(string sqlServer, string database, string user, string password)
+        internal static SqlConnection LocalAuthentication(string sqlServer, string database, string user, string password)
         {
-            _connectionString = string.Format("Server={0}; Database={1}; Integrated Security=False; User Id={2}; Password={3};", sqlServer, database, user, password);
+            _connectionString = $"Server={sqlServer}; Database={database}; Integrated Security=False; User Id={user}; Password={password};";
+            
             return _authenticateToDatabase(_connectionString, user, sqlServer);
         }
 
         /// <summary>
-        /// The AzureADAuthentication method uses cleartext Azure AD domain credentials 
+        /// The EntraIdAuthentication method uses cleartext Entra ID domain credentials
         /// to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
@@ -65,17 +68,18 @@ namespace SQLRecon.Utilities
         /// <param name="user"></param>
         /// <param name="password"></param>
         /// <returns>A valid SQL connection object that is used to authenticate against databases.</returns>
-        public SqlConnection AzureADAuthentication(string sqlServer, string database, string domain, string user, string password)
+        internal static SqlConnection EntraIdAuthentication(string sqlServer, string database, string domain, string user, string password)
         {
-            user = string.Format("{0}@{1}", user, domain);
+            user = $"{user}@{domain}";
 
-            _connectionString = string.Format("Server={0}; Database={1}; Authentication=Active Directory Password; " +
-                "Encrypt=True; TrustServerCertificate=False; User ID={2}; Password={3};", sqlServer, database, user, password);
+            _connectionString = $"Server={sqlServer}; Database={database}; Authentication=Active Directory Password; " +
+                                $"Encrypt=True; TrustServerCertificate=False; User ID={user}; Password={password};";
+            
             return _authenticateToDatabase(_connectionString, user, sqlServer);
         }
 
         /// <summary>
-        /// The AzureLocationAuthentication method uses cleartext Azure local database credentials 
+        /// The AzureLocationAuthentication method uses cleartext Azure local database credentials
         /// to authenticate to a supplied database.
         /// </summary>
         /// <param name="sqlServer"></param>
@@ -83,15 +87,15 @@ namespace SQLRecon.Utilities
         /// <param name="user"></param>
         /// <param name="password"></param>
         /// <returns>A valid SQL connection object that is used to authenticate against databases.</returns>
-        public SqlConnection AzureLocalAuthentication(string sqlServer, string database, string user, string password)
+        internal static SqlConnection AzureLocalAuthentication(string sqlServer, string database, string user, string password)
         {
-            _connectionString = string.Format("Server={0}; Database={1}; " +
-                "TrustServerCertificate=False; Encrypt=True; User Id={2}; Password={3};", sqlServer, database, user, password);
+            _connectionString = $"Server={sqlServer}; Database={database}; TrustServerCertificate=False; Encrypt=True; User Id={user}; Password={password};";
+            
             return _authenticateToDatabase(_connectionString, user, sqlServer);
         }
 
         /// <summary>
-        /// The _authenticateTodatabase method is responsible for creating a SQL connection object
+        /// The _authenticateToDatabase method is responsible for creating a SQL connection object
         /// to a supplied database.
         /// </summary>
         /// <param name="conString"></param>
@@ -99,41 +103,61 @@ namespace SQLRecon.Utilities
         /// <param name="sqlServer"></param>
         /// <returns>
         /// If the connection to the database succeeds, a SQL connection object is returned, otherwise
-        /// an eror message is provided and the program is gracefully exited.
+        /// an error message is provided and the program gracefully exits.
         /// </returns>
-        private SqlConnection _authenticateToDatabase(string conString, string user, string sqlServer)
+        private static SqlConnection _authenticateToDatabase(string conString, string user, string sqlServer)
         {
-            SqlConnection connection = new SqlConnection(conString);
+            // Set timeout to 4s, unless specified using the "/timeout" or "/t" flags.
+            _connectionString = $"{conString} Connect Timeout={Var.Timeout};";
+            
+            // Create SQL connection object
+            SqlConnection connection = new SqlConnection(_connectionString);
 
             try
             {
                 connection.Open();
+                if (Var.Debug || Var.Verbose)
+                {
+                    Print.Debug($"Connecting to '{Var.Database}' on {Var.SqlServer}:{Var.Port} using {Var.AuthenticationType}.");
+                    Print.Nested($"Connection String: {_connectionString}", true);
+                    Print.Nested($"Data Source: {connection.DataSource}", true);
+                    Print.Nested($"Database: {connection.Database}", true);
+                    Print.Nested($"Server Version: {connection.ServerVersion}", true);
+                    Print.Nested($"State: {connection.State}", true);
+                    Print.Nested($"Workstation ID: {connection.WorkstationId}", true);
+                    Print.Nested($"Packet Size: {connection.PacketSize}", true);
+                    Print.Nested($"Client Connection ID: {connection.ClientConnectionId}", true);
+                    Print.Nested($"Application Name: {connection.WorkstationId}", true);
+                }
+
                 return connection;
             }
-
             catch (Exception ex)
             {
                 if (ex.ToString().ToLower().Contains("login failed"))
                 {
-                    _print.Error(string.Format("Invalid credentials supplied for {0}.", user), true);
+                    Print.Error($"'{user}' can not connect to '{Var.Database}' on {sqlServer.Replace(",",":")}", true);
+                    connection.Close();
+                    return null;
                 }
                 else if (ex.ToString().ToLower().Contains("network-related"))
                 {
-                    _print.Error(string.Format("{0} can not be reached.", sqlServer.Replace(",", ":")), true);
+                    Print.Error($"{sqlServer.Replace(",", ":")} can not be reached.", true);
+                    connection.Close();
+                    return null;
                 }
                 else if (ex.ToString().ToLower().Contains("adalsql.dll"))
                 {
-                    _print.Error("Unable to load adal.sql or adalsql.dll.", true);
+                    Print.Error("Unable to load adal.sql or adalsql.dll.", true);
+                    connection.Close();
+                    return null;
                 }
-                else 
+                else
                 {
-                    _print.Error(string.Format("{0} can not log in to {1}.", user, sqlServer.Replace(",", ":")), true);
-                    Console.WriteLine(ex);
+                    Print.Error($"{user} can not log in to {sqlServer.Replace(",", ":")}.", true);
+                    connection.Close();
+                    return null;
                 }
-
-                connection.Close();
-                // Go no further.
-                return null;
             }
         }
     }

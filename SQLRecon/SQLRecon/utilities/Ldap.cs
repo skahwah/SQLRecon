@@ -8,21 +8,21 @@ namespace SQLRecon.Utilities
     {
         private readonly DomainSearcher _searcher;
         
-        public Ldap(DomainSearcher searcher)
+        internal Ldap(DomainSearcher searcher)
         {
             _searcher = searcher;
         }
         
         /// <summary>
-        /// The ExecuteQuery method allows LDAP queries to be executed 
+        /// The ExecuteLdapQuery method allows LDAP queries to be executed 
         /// against a domain controller.
         /// </summary>
         /// <param name="filter"></param>
         /// <param name="properties"></param>
         /// <returns></returns>
-        public Dictionary<string, Dictionary<string, object[]>> ExecuteQuery(string filter, string[] properties = null)
+        internal Dictionary<string, Dictionary<string, object[]>> ExecuteLdapQuery(string filter, string[] properties = null)
         {
-            var searcher = new DirectorySearcher(_searcher.Directory)
+            DirectorySearcher searcher = new DirectorySearcher(_searcher.Directory)
             {
                 Filter = filter,
             };
@@ -32,21 +32,21 @@ namespace SQLRecon.Utilities
                 searcher.PropertiesToLoad.AddRange(properties);
             }
 
-            var searchResultCollection = searcher.FindAll();
+            SearchResultCollection searchResultCollection = searcher.FindAll();
 
-            var resultDictionary = new Dictionary<string, Dictionary<string, object[]>>();
+            Dictionary<string, Dictionary<string, object[]>> resultDictionary = new Dictionary<string, Dictionary<string, object[]>>();
 
             foreach (SearchResult searchResult in searchResultCollection)
             {
                 resultDictionary.Add(searchResult.Path, null);
 
-                var dictionary = new Dictionary<string, object[]>();
+                Dictionary<string, object[]> dictionary = new Dictionary<string, object[]>();
 
                 foreach (DictionaryEntry entry in searchResult.Properties)
                 {
-                    var values = new List<object>();
+                    List<object> values = new List<object>();
 
-                    foreach (var value in (ResultPropertyValueCollection)entry.Value)
+                    foreach (object value in (ResultPropertyValueCollection)entry.Value)
                         values.Add(value);
 
                     dictionary.Add(entry.Key.ToString(), values.ToArray());

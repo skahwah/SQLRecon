@@ -3,321 +3,165 @@ using System.Data.SqlClient;
 
 namespace SQLRecon.Commands
 {
-    internal class GlobalVariables
+    internal abstract class Var
     {
-        private static SqlConnection _connect;
-        private static string _arg0;
-        private static string _arg1;
-        private static string _arg2;
-        private static string _authenticationType;
-        private static string _database = "master";
-        private static string _domain;
-        private static string _impersonate;
-        private static string _linkedSqlServer;
-        private static string _module;
-        private static string _password;
-        private static string _port = "1433";
-        private static string _sqlServer;
-        private static string _username;
+        internal static Dictionary<string, string> CoreCommands =>
+            new()
+            {
+                {"a", "auth"},
+                {"c", "command"},
+                {"chain", "chain"},
+                {"d", "domain"},
+                {"debug","debug"},
+                {"e", "enum"},
+                {"h", "host"},
+                {"i", "iuser"},
+                {"l", "link"},
+                {"m", "module"},
+                {"o", "option"},
+                {"p", "password"},
+                {"s", "sccm"},
+                {"u", "username"},
+                {"t", "timeout"},
+                {"v", "verbose"}
+            };
 
-        public Dictionary<string, string> CoreCommands
+        internal static Dictionary<string, int> EnumerationModulesAndArgumentCount =>
+            new()
+            {
+                {"info", 1},
+                {"sqlspns", 0},
+            };
+
+        internal static Dictionary<string, int[]> SccmModulesAndArgumentCount
         {
             get
             {
-                return new Dictionary<string, string>()
+                return new Dictionary<string, int[]>()
                 {
-                    {"a", "auth"},
-                    {"c", "command"},
-                    {"d", "domain"},
-                    {"e", "enum"},
-                    {"h", "host"},
-                    {"i", "iuser"},
-                    {"l", "lhost"},
-                    {"m", "module"},
-                    {"o", "option"},
-                    {"p", "password"},
-                    {"u", "username"}
-                };
-            }
-        }
+                    /* Module Description:
 
-        public Dictionary<string, int> StandardArgumentsAndOptionCount
-        {
-            get 
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"agentstatus", 0},
-                    {"checkrpc", 0},
-                    {"databases", 0},
-                    {"disableclr", 0},
-                    {"disableole", 0},
-                    {"disablexp", 0},
-                    {"enableclr", 0},
-                    {"enableole", 0},
-                    {"enablexp", 0},
-                    {"info", 0},
-                    {"impersonate", 0},
-                    {"links", 0},
-                    {"users", 0},
-                    {"whoami", 0},
-                    {"agentcmd", 1},
-                    {"disablerpc", 1},
-                    {"enablerpc", 1},
-                    {"olecmd", 1},
-                    {"query", 1},
-                    {"search", 1},
-                    {"smb", 1},
-                    {"tables", 1},
-                    {"xpcmd", 1},
-                    {"adsi", 2},
-                    {"clr", 2},
-                    {"columns", 2},
-                    {"rows", 2}
-                };
-            }
-        }
+                     Dictionary Key -> Module name
+                     Dictionary Value -> Number of required arguments for:
 
-        public Dictionary<string, int> ImpersonationArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"iagentstatus", 1},
-                    {"icheckrpc", 1},
-                    {"idatabases", 1},
-                    {"idisableclr", 1},
-                    {"idisableole", 1},
-                    {"idisablexp", 1},
-                    {"ienableclr", 1},
-                    {"ienableole", 1},
-                    {"ienablexp", 1},
-                    {"ilinks", 1},
-                    {"iusers", 1},
-                    {"iwhoami", 1},
-                    {"iagentcmd", 2},
-                    {"idisablerpc", 2},
-                    {"ienablerpc", 2},
-                    {"iolecmd", 2},
-                    {"iquery", 2},
-                    {"isearch", 2},
-                    {"itables", 2},
-                    {"ixpcmd", 2},
-                    {"iadsi", 3},
-                    {"iclr", 3},
-                    {"icolumns", 3},
-                    {"irows", 3}
-                };
-            }
-        }
+                     - Standard modules in array position 0
+                     - Impersonation modules in array position 1
 
-        public Dictionary<string, int> LinkedArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"lagentstatus", 1},
-                    {"lcheckrpc", 1},
-                    {"ldatabases", 1},
-                    {"ldisableclr", 1},
-                    {"ldisableole", 1},
-                    {"ldisablexp", 1},
-                    {"lenableclr", 1},
-                    {"lenableole", 1},
-                    {"lenablexp", 1},
-                    {"llinks", 1},
-                    {"lusers", 1},
-                    {"lwhoami", 1},
-                    {"lagentcmd", 2},
-                    {"lolecmd", 2},
-                    {"lquery", 2},
-                    {"lsmb", 2},
-                    {"ltables", 2},
-                    {"lxpcmd", 2},
-                    {"ladsi", 3},
-                    {"lclr", 3},
-                    {"lcolumns", 3},
-                    {"lsearch", 3},
-                    {"lrows", 3}
+                     The following modules have no Impersonation support, and have been set to -1:
+                      - decryptcredentials
+                     */
+                    {"credentials", new[] { 0, 1 }},
+                    {"decryptcredentials", new[] { 0, -1 }},
+                    {"logons", new[] { 0, 1 }},
+                    {"sites", new[] { 0, 1 }},
+                    {"taskdata", new[] { 0, 1 }},
+                    {"tasklist", new[] { 0, 1 }},
+                    {"users", new[] { 0, 1 }},
+                    {"addadmin", new[] { 2, 3 }},
+                    {"removeadmin", new[] { 2, 3 }},
                 };
-            }
-        }
-
-        public Dictionary<string, int> SccmArgumentsAndOptionCount
-        {
-            get
-            {
-                return new Dictionary<string, int>()
-                {
-                    {"scredentials", 0},
-                    {"sdecryptcredentials", 0},
-                    {"slogons", 0},
-                    {"ssites", 0},
-                    {"staskdata", 0},
-                    {"stasklist", 0},
-                    {"susers", 0},
-                    {"saddadmin", 2},
-                    {"sremoveadmin", 2}
-                };
-            }
-        }
-
-        public string Arg0
-        {
-            get
-            {
-                return _arg0;
-            }
-            set
-            {
-                _arg0 = value;
-            }
-        }
-        public string Arg1
-        {
-            get
-            {
-                return _arg1;
-            }
-            set
-            {
-                _arg1 = value;
-            }
-        }
-        public string Arg2
-        {
-            get
-            {
-                return _arg2;
-            }
-            set
-            {
-                _arg2 = value;
-            }
-        }
-        public SqlConnection Connect
-        {
-            get
-            {
-                return _connect;
-            }
-            set
-            {
-                _connect = value;
-            }
-        }
-        public string AuthenticationType
-        {
-            get
-            {
-                return _authenticationType;
-            }
-            set
-            {
-                _authenticationType = value;
-            }
-        }
-        public string Database
-        {
-            get
-            {
-                return _database;
-            }
-            set
-            {
-                _database = value;
-            }
-        }
-        public string Domain
-        {
-            get
-            {
-                return _domain;
-            }
-            set
-            {
-                _domain = value;
-            }
-        }
-        public string Impersonate
-        {
-            get
-            {
-                return _impersonate;
-            }
-            set
-            {
-                _impersonate = value;
-            }
-        }
-        public string LinkedSqlServer
-        {
-            get
-            {
-                return _linkedSqlServer;
-            }
-            set
-            {
-                _linkedSqlServer = value;
-            }
-        }
-        public string Module
-        {
-            get
-            {
-                return _module;
-            }
-            set
-            {
-                _module = value;
             }
         }
         
-        public string Password
+        internal static Dictionary<string, int[]> SqlModulesAndArgumentCount
         {
-            get
+            get 
             {
-                return _password;
-            }
-            set
-            {
-                _password = value;
+                return new Dictionary<string, int[]>()
+                {
+                    /* Module Description:
+                     
+                     Dictionary Key -> Module name
+                     Dictionary Value -> Number of required arguments for:
+                      
+                     - Standard modules in array position 0
+                     - Impersonation modules in array position 1
+                     - Linked modules in array position 2
+                                          
+                     The following modules have no Linked or Chain support, and have been set to -1:
+                      - disablerpc
+                      - enablerpc
+                     */
+                    
+                    {"agentstatus", new[] { 0, 1, 1 }},
+                    {"checkrpc", new[] { 0, 1, 1 }},
+                    {"databases", new[] { 0, 1, 1 }},
+                    {"disableclr", new[] { 0, 1, 1 }},
+                    {"disableole", new[] { 0, 1, 1 }},
+                    {"disablexp", new[] { 0, 1, 1 }},
+                    {"enableclr", new[] { 0, 1, 1 }},
+                    {"enableole", new[] { 0, 1, 1 }},
+                    {"enablexp", new[] { 0, 1, 1 }},
+                    {"info", new[] { 0, 0, 0 }},
+                    {"impersonate", new[] { 0, 0, 0 }},
+                    {"links", new[] { 0, 1, 2}},
+                    {"users", new[] { 0, 1, 2 }},
+                    {"whoami", new[] { 0, 1, 2 }},
+                    {"agentcmd", new[] { 1, 2, 2 }},
+                    {"disablerpc", new[] { 1, 2, -1 }},
+                    {"enablerpc", new[] { 1, 2, -1 }},
+                    {"olecmd", new[] { 1, 2, 2 }},
+                    {"query", new[] { 1, 2, 2 }},
+                    {"search", new[] { 1, 2, 3 }},
+                    {"smb", new[] { 1, 2, 2 }},
+                    {"tables", new[] { 1, 2, 2 }},
+                    {"xpcmd", new[] { 1, 2, 2 }},
+                    {"adsi", new[] { 2, 3, 3 }},
+                    {"clr", new[] { 2, 3, 3}},
+                    {"columns", new[] { 2, 3, 3 }},
+                    {"rows", new[] { 2, 3, 3 }}
+                };
             }
         }
-        public string Port
-        {
-            get
-            {
-                return _port;
-            }
-            set
-            {
-                _port = value;
-            }
-        }
-        public string SqlServer
-        {
-            get
-            {
-                return _sqlServer;
-            }
-            set
-            {
-                _sqlServer = value;
-            }
-        }
-        public string Username
-        {
-            get
-            {
-                return _username;
-            }
-            set
-            {
-                _username = value;
-            }
-        }
+        
+        internal static string Arg1 { get; set; }
+
+        internal static string Arg2 { get; set; }
+
+        internal static string Arg3 { get; set; }
+
+        internal static string AuthenticationType { get; set; }
+
+        internal static string Context { get; set; }
+
+        internal static SqlConnection Connect { get; set; }
+
+        internal static string Database { get; set; } = "master";
+
+        internal static bool Debug { get; set; }
+
+        internal static string Domain { get; set; }
+
+        internal static string EnumerationModule { get; set; }
+
+        internal static string Impersonate { get; set; }
+
+        internal static string LinkedSqlServer { get; set; }
+
+        internal static string[] LinkedSqlServers { get; set; }
+
+        internal static string[] LinkedSqlServersChain { get; set; }
+
+        internal static bool LinkedSqlServerChain { get; set; }
+
+        internal static string Module { get; set; }
+
+        internal static Dictionary<string, string> ParsedArguments { get; set; }
+
+        internal static string Password { get; set; }
+
+        internal static string Port { get; set; } = "1433";
+
+        internal static string SccmModule { get; set; }
+
+        internal static string SqlServer { get; set; }
+
+        internal static string[] SqlServers { get; set; }
+
+        internal static string Username { get; set; }
+
+        internal static string Timeout { get; set; } = "3";
+
+        internal static bool Verbose { get; set; }
     }
 }
