@@ -193,27 +193,21 @@ The wiki has details on using each module against an <a href="https://github.com
 # Extending SQLRecon
 
 If you are interested in extending SQLRecon, refer to the write up in the <a href="https://github.com/skahwah/SQLRecon/wiki/8.-Contributing-and-Extending-SQLRecon">wiki</a>.
-If you have any suggestions or ideas, please open an issue or start a discussion on the (GitHub Issues)[https://github.com/skahwah/SQLRecon/issues] page.
+If you have any suggestions or ideas, I encourage you to open an [issue](https://github.com/skahwah/SQLRecon/issues).
 
-## Roadmap
+### Roadmap
 
-Our goal is to continuously enhance SQLRecon with new features, improvements, and bug fixes. Below is a high-level roadmap of the planned features and enhancements.
+The goal is to continuously enhance SQLRecon with new features, improvements, and bug fixes. Listed is a high-level roadmap of the planned features and enhancements.
 
 * **NTLM Hash-Based Authentication**: Implement support for NTLM hash-based authentication to enhance security and flexibility.
 * **CLR Execution for SQL Server 2016 and Below**: Develop built-in logic for CLR execution on older versions of SQL Server to extend compatibility.
 * **Enhanced enablerpc/disablerpc Functionality**: Explore and implement enablerpc/disablerpc functionalities for linked and chained SQL servers.
 
+### Credits
 
-# Credits
-
-This project is primarily maintained by Sanjiv KAWA (skahwah), with significant support and contributions from the community. The evolution of SQLRecon has been driven by ideas and enhancements from various contributors.
-
-- [**Sanjiv KAWA (skahwah)**](https://github.com/skahwah): Principal author, creator and maintener of `SQLRecon`. Laying the foundation and building every new versions.
-- [**Azaël MARTIN (n3rada)**](https://github.com/n3rada): Contributed significant enhancements including execution against linked SQL server chains, improved impersonation modules, added support for debug and verbose modes, standardized console output to markdown, and added IP address retrieval into the `sqlspns` enumeration module.
-- [**Daniel DUGGAN (rasta-mouse)**](https://github.com/rasta-mouse): Provided valuable insights and improvements to various modules, including the inclusion of an info module and enumerating Active Directory for MSSQL SPNs.
-- [**passthehashbrowns**](https://github.com/passthehashbrowns): Contributed various enhancements such as the capability to download .NET assemblies via HTTP/S, creation of the lagentcmd module, and fixes for the sp_drop_trusted_assembly issues in clr and iclr modules.
-
-You can find detailed information about each release on the [releases page](https://github.com/skahwah/SQLRecon/releases).
+- [**Azaël Martin (n3rada)**](https://github.com/n3rada): Added support for module execution against linked SQL server chains. Conributed to standardizing console output. Contributed to the info, impersonation and whoami modules. 
+- [**Daniel Duggan (rasta-mouse)**](https://github.com/rasta-mouse): Added the info enumeration module.
+- [**Joshua Magri (passthehashbrowns)**](https://github.com/passthehashbrowns): Contributed to the clr module.
 
 # History
 
