@@ -213,7 +213,7 @@ This project is primarily maintained by Sanjiv KAWA (skahwah), with significant 
 - [**Daniel DUGGAN (rasta-mouse)**](https://github.com/rasta-mouse): Provided valuable insights and improvements to various modules, including the inclusion of an info module and enumerating Active Directory for MSSQL SPNs.
 - [**passthehashbrowns**](https://github.com/passthehashbrowns): Contributed various enhancements such as the capability to download .NET assemblies via HTTP/S, creation of the lagentcmd module, and fixes for the sp_drop_trusted_assembly issues in clr and iclr modules.
 
-You can find detailed information about each release on the (releases page)[https://github.com/skahwah/SQLRecon/releases].
+You can find detailed information about each release on the [releases page](https://github.com/skahwah/SQLRecon/releases).
 
 # History
 
