@@ -20,7 +20,7 @@ namespace SQLRecon.Utilities
         internal static string ConvertDictionaryToMarkdownTable(Dictionary<string, string> dictionary, string columnOneHeader, string columnTwoHeader)
         {
             StringBuilder sqlStringBuilder = new StringBuilder();
-            
+
             if (dictionary.Count > 0)
             {
                 /*
@@ -30,7 +30,7 @@ namespace SQLRecon.Utilities
                  * that a column name is longer than any values.
                  */
                 dictionary.Add(columnOneHeader,columnTwoHeader);
-                
+
                 // Obtain the length of the longest key name and base the width of the first column off this.
                 int columnOneWidth = dictionary.Max(t => t.Key.Length);
                 sqlStringBuilder.Append("| ").Append(columnOneHeader.PadRight(columnOneWidth)).Append(" ");
@@ -48,7 +48,7 @@ namespace SQLRecon.Utilities
 
                 // New line
                 sqlStringBuilder.AppendLine("|");
-             
+
                 // Iterate over the dictionary and place the values into rows for the Markdown table
                 // Ignore the last entry as it is just the column names.
                 for (int i = 0; i < dictionary.Count - 1; i++)
@@ -60,12 +60,12 @@ namespace SQLRecon.Utilities
                 }
             }
             return sqlStringBuilder.ToString();
-        } 
-        
+        }
+
         /// <summary>
         /// The ConvertSqlDataReaderToMarkdownTable table converts the data from a SqlDataReader
         /// into a Markdown-friendly table format.
-        /// Credit to Azael Martin (n3rada). 
+        /// Credit to Azaël MARTIN (n3rada).
         /// </summary>
         /// <param name="reader">The SqlDataReader containing the query results.</param>
         /// <returns>A string containing the results formatted as a Markdown table.</returns>
@@ -89,14 +89,14 @@ namespace SQLRecon.Utilities
                 while (reader.Read())
                 {
                     string[] row = new string[columnCount];
-                    
+
                     for (int i = 0; i < columnCount; i++)
                     {
                         string cellValue = reader.GetValue(i).ToString();
                         row[i] = cellValue;
                         columnWidths[i] = Math.Max(columnWidths[i], cellValue.Length);
                     }
-                    
+
                     rows.Add(row);
                 }
 
@@ -113,7 +113,7 @@ namespace SQLRecon.Utilities
                     string columnName = reader.GetName(i).Equals("") ? "column" + i.ToString() : reader.GetName(i);
                     sqlStringBuilder.Append("| ").Append(columnName.PadRight(columnWidths[i])).Append(" ");
                 }
-                
+
                 sqlStringBuilder.AppendLine("|");
 
                 // Print the markdown separator
@@ -121,7 +121,7 @@ namespace SQLRecon.Utilities
                 {
                     sqlStringBuilder.Append("| ").Append(new string('-', columnWidths[i])).Append(" ");
                 }
-                
+
                 sqlStringBuilder.AppendLine("|");
 
                 // Print the data rows
@@ -131,13 +131,13 @@ namespace SQLRecon.Utilities
                     {
                         sqlStringBuilder.Append("| ").Append(row[i].PadRight(columnWidths[i])).Append(" ");
                     }
-                    
+
                     sqlStringBuilder.AppendLine("|");
                 }
             }
             return sqlStringBuilder.ToString();
         }
-        
+
         /// <summary>
         /// The Debug method adds a debug message to the beginning
         /// of a provided string. This method prints by default.
@@ -163,7 +163,7 @@ namespace SQLRecon.Utilities
                 Console.WriteLine($"[-] {sqlOutput}");
             }
         }
-        
+
         /// <summary>
         /// The DebugQueries method is used to print a dictionary consisting of
         /// SQL queries. The method returns a boolean value which enables logic to be
@@ -181,7 +181,7 @@ namespace SQLRecon.Utilities
                 {
                     Nested($"{q.Key} -> {q.Value}", true);
                 }
-                
+
                 return true;
             }
             else
@@ -190,7 +190,7 @@ namespace SQLRecon.Utilities
             }
 
         }
-        
+
         /// <summary>
         /// The Error method adds an error message to the beginning
         /// of a provided string.
@@ -211,11 +211,11 @@ namespace SQLRecon.Utilities
                 return $"[X] {sqlOutput}";
             }
         }
-        
+
         /// <summary>
         /// The ExtractColumnValues method parses the result of a SQL query,
         /// and returns a list of values for a specified column.
-        /// Credit to Azael Martin (n3rada). 
+        /// Credit to Azaël MARTIN (n3rada).
         /// </summary>
         /// <param name="queryResult">The result of the SQL query as a string.</param>
         /// <param name="columnName">The name of the column to extract values from.</param>
@@ -248,7 +248,7 @@ namespace SQLRecon.Utilities
                 .Select(columns => columns[columnIndex].Trim())
                 .ToList();
         }
-        
+
         /// <summary>
         /// The IsOutputEmpty method checks to see if a string is empty
         /// or null before providing a generic message.
