@@ -17,17 +17,17 @@ namespace SQLRecon.Utilities
         internal static Dictionary<string, string> ImpersonationDictionary(string impersonate, Dictionary<string, string> dict)
         {
             Dictionary<string, string> queries = new Dictionary<string, string>(dict.Count);
-            
+
             foreach (KeyValuePair<string, string> entry in dict)
             {
                 queries[entry.Key] = ImpersonationQuery(impersonate, entry.Value);
             }
-            
+
             dict.Clear();
-            
+
             return queries;
         }
-        
+
         /// <summary>
         /// The LinkedDictionary method adds the OPENQUERY statement along with the linked SQL server
         /// to connect to and the SQL query in front of every standard SQL query supplied
@@ -54,9 +54,9 @@ namespace SQLRecon.Utilities
                     queries[entry.Key] = LinkedQuery(linkedSqlServer, entry.Value);
                 }
             }
-            
+
             dict.Clear();
-            
+
             return queries;
         }
 
@@ -66,7 +66,7 @@ namespace SQLRecon.Utilities
         /// a target SQL server.
         /// Intelligence exists to determine whether the dictionary key starts with 'rpc_'. If it does,
         /// the SQL query will not have the OPENQUERY statement prepended, but the EXEC query instead and the linked SQL
-        /// server will be placed at the end of the query. 
+        /// server will be placed at the end of the query.
         /// </summary>
         /// <param name="linkedSqlServerChain"></param>
         /// <param name="dict"></param>
@@ -86,12 +86,12 @@ namespace SQLRecon.Utilities
                     queries[entry.Key] = LinkedChainQuery(linkedSqlServerChain, entry.Value);
                 }
             }
-            
+
             dict.Clear();
-            
+
             return queries;
         }
-        
+
         /// <summary>
         /// The ImpersonationQuery method adds the EXECUTE AS LOGIN statement along with
         /// the user to impersonate in front of every standard SQL query
@@ -103,7 +103,7 @@ namespace SQLRecon.Utilities
         {
             return "EXECUTE AS LOGIN = '" + impersonate + "'; " + query;
         }
-        
+
         /// <summary>
         /// The LinkedQuery method adds the OPENQUERY statement along with the linked SQL server
         /// to connect to and the SQL query in front of every standard SQL query supplied.
@@ -118,15 +118,15 @@ namespace SQLRecon.Utilities
         internal static string LinkedQuery(string linkedSqlServer, string query, bool rpc = false)
         {
             query = query.Replace("'", "''");
-            
+
             return (rpc == false)
                 ? "SELECT * FROM OPENQUERY(\"" + linkedSqlServer + "\", '" + query + "')"
                 : "EXECUTE ('" + query + "') AT " + linkedSqlServer + ";";
         }
-        
+
         /// <summary>
         /// The LinkedChainQuery method constructs a nested OPENQUERY statement for querying linked SQL servers in a chain.
-        /// Credit to Azael Martin (n3rada). 
+        /// Credit to Azaël MARTIN (n3rada).
         /// </summary>
         /// <param name="linkedSqlServerChain">An array of server names representing the path of linked servers to traverse. '0' in front of them is mandatory to make the query work properly.</param>
         /// <param name="query">The SQL query to be executed at the final server in the linked server path.</param>
@@ -146,7 +146,7 @@ namespace SQLRecon.Utilities
 
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.Append("SELECT * FROM OPENQUERY(\"");
-            stringBuilder.Append(linkedSqlServerChain[1]);  
+            stringBuilder.Append(linkedSqlServerChain[1]);
             // Taking the next server in the path.
             stringBuilder.Append("\", ");
             stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
@@ -155,17 +155,17 @@ namespace SQLRecon.Utilities
             string[] subPath = new string[linkedSqlServerChain.Length - 1];
             Array.Copy(linkedSqlServerChain, 1, subPath, 0, linkedSqlServerChain.Length - 1);
 
-            stringBuilder.Append(LinkedChainQuery(subPath, query, ticks + 1)); 
+            stringBuilder.Append(LinkedChainQuery(subPath, query, ticks + 1));
             // Recursive call with incremented ticks.
             stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
             stringBuilder.Append(")");
-            
+
             return stringBuilder.ToString();
         }
-        
+
         /// <summary>
         /// The LinkedChainRpcQuery method constructs a nested EXEC AT statement for querying linked SQL servers in a chain.
-        /// Credit to Azael Martin (n3rada). 
+        /// Credit to Azaël MARTIN (n3rada).
         /// </summary>
         /// <param name="linkedSqlServerChain"></param>
         /// <param name="query"></param>
