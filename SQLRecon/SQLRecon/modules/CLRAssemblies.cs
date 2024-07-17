@@ -378,7 +378,7 @@ namespace SQLRecon.Modules
                 if (sqlOutput.Contains(dllPath))
                 {
                     Print.Success(
-                        $"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
+                        $"Added SHA-512 hash for '{dll}' as a trusted assembly with a random name of '{dllPath}'.", true);
                 }
                 else
                 {
