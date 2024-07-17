@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.7.0");
+            Console.WriteLine("Version: 3.8");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
@@ -160,7 +160,6 @@ namespace SQLRecon.Utilities
                 }
             }
         }
-        
         
         /// <summary>
         /// The _nested method will print a nested string with left space padding.

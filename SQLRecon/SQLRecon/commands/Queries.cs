@@ -8,6 +8,10 @@ namespace SQLRecon.Commands
         
         internal static readonly string AddSccmAdminPrivileges = "INSERT INTO [dbo].[RBAC_ExtendedPermissions] (AdminID,RoleID,ScopeID,ScopeTypeID) Values";
         
+        internal static readonly string AlterDatabaseTrustOn ="ALTER DATABASE {0} SET TRUSTWORTHY ON;";
+        
+        internal static readonly string AlterDatabaseTrustOff ="ALTER DATABASE {0} SET TRUSTWORTHY OFF;";
+        
         internal static readonly string CheckClrHash = "SELECT * FROM sys.trusted_assemblies WHERE hash = 0x{0};";
         
         internal static readonly string CheckImpersonation = "SELECT 1 FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND b.name = '{0}'";

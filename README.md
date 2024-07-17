@@ -192,41 +192,55 @@ The wiki has details on using each module against an <a href="https://github.com
 
 # Extending SQLRecon
 
-If you are interested in extending SQLRecon, refer to the write up in the <a href="https://github.com/skahwah/SQLRecon/wiki/8.-Contributing-and-Extending-SQLRecon">wiki</a>.
-If you have any suggestions or ideas, I encourage you to open an [issue](https://github.com/skahwah/SQLRecon/issues).
+If you are interested in extending SQLRecon, please refer to the contributing and extending section in the <a href="https://github.com/skahwah/SQLRecon/wiki/8.-Contributing-and-Extending-SQLRecon">wiki</a>.
+
+I encourage you to open an [issue](https://github.com/skahwah/SQLRecon/issues) if you have any suggestions or ideas.
 
 ### Roadmap
 
-The goal is to continuously enhance SQLRecon with new features, improvements, and bug fixes. Listed is a high-level roadmap of the planned features and enhancements.
+The goal is to continuously improve SQLRecon. Listed below are some planned research areas:
 
-* **NTLM Hash-Based Authentication**: Implement support for NTLM hash-based authentication to enhance security and flexibility.
-* **CLR Execution for SQL Server 2016 and Below**: Develop built-in logic for CLR execution on older versions of SQL Server to extend compatibility.
-* **Enhanced enablerpc/disablerpc Functionality**: Explore and implement enablerpc/disablerpc functionalities for linked and chained SQL servers.
+* Implement support for NTLM hash-based authentication.
+* Explore enablerpc/disablerpc functionalities for linked and link chained SQL servers.
 
 ### Credits
 
-- [**Azaël Martin (n3rada)**](https://github.com/n3rada): Added support for module execution against linked SQL server chains. Conributed to standardizing console output. Contributed to the info, impersonation and whoami modules. 
-- [**Daniel Duggan (rasta-mouse)**](https://github.com/rasta-mouse): Added the info enumeration module.
-- [**Joshua Magri (passthehashbrowns)**](https://github.com/passthehashbrowns): Contributed to the clr module.
+The following people have contributed either directly or indirectly to various aspects of SQLRecon.
+
+- Adam Chester [(xpn)](https://github.com/xpn)
+- Azaël Martin [(n3rada)](https://github.com/n3rada)
+- Daniel Duggan [(rasta-mouse)](https://github.com/rasta-mouse)
+- Dave Cossa [(G0ldenGunSec)](https://github.com/G0ldenGunSec)
+- Dwight Hohnstein [(djhohnstein)](https://github.com/djhohnstein)
+- Joshua Magri [(passthehashbrowns)](https://github.com/passthehashbrowns)
 
 # History
+
+<details>
+<summary>v3.8</summary>
+
+* Added logic to support the execution of CLR assemblies on SQL Server 2016 and below. This is for the clr module. Execution supported in all contexts.
+* Added logic to load a LDAP server CLR assembly on SQL Server 2016 and below. This is for the adsi module. Execution supported in all contexts.
+* Updated README.
+* Updated Wiki.
+</details>
 
 <details>
 <summary>v3.7</summary>
 
 * Complete refactor of code base.
 * Updated documentation (code comments, README, and wiki)
-* Execution against a linked SQL server chain. For example, if `SQL01` has a link to `SQL02`, and `SQL02`, has a link to `SQL03`, and `SQL03`, has a link to `PAYMENTS01`. It is now possible to execute commands from `SQL01` on `PAYMENTS01` using the linked server chain (`/link:SQL02,SQL03,PAYMENTS01 /chain`). Credit to Azaël MARTIN (n3rada).
+* Execution against a linked SQL server chain. For example, if `SQL01` has a link to `SQL02`, and `SQL02`, has a link to `SQL03`, and `SQL03`, has a link to `PAYMENTS01`. It is now possible to execute commands from `SQL01` on `PAYMENTS01` using the linked server chain (`/link:SQL02,SQL03,PAYMENTS01 /chain`). Credit to Azaël Martin (n3rada).
 * Removed '`l`' and '`i`' modules, and introduced context logic so module names can be the same across standard, impersonation, linked and chained execution.
 * Added chain support to all linked modules.
 * Added support for debug (`/debug`), which will display various debugging information and all SQL queries that will be executed by a module, without executing them.
 * Added verbose (`/verbose, /v`), which will display all SQL queries that will be executed during module execution.
 * Added timeout (`/timeout, /t`), which takes an integer value for SQL server database connection timeout.
-* Improved `links` module to include detailed information. Credit to Azaël MARTIN (n3rada). 
-* Improved `whoami` module to include Windows principals and database users. Credit to Azaël MARTIN (n3rada). 
-* Improved `impersonation` module to include Windows principals and database users. Credit to Azaël MARTIN (n3rada).
-* Added IP address retrieval into the `sqlspns` enumeration module. Credit to Azaël MARTIN (n3rada). 
-* Standardized console output to markdown where applicable. Credit to Azaël MARTIN (n3rada). 
+* Improved `links` module to include detailed information. Credit to Azaël Martin (n3rada). 
+* Improved `whoami` module to include Windows principals and database users. Credit to Azaël Martin (n3rada). 
+* Improved `impersonation` module to include Windows principals and database users. Credit to Azaël Martin (n3rada).
+* Added IP address retrieval into the `sqlspns` enumeration module. Credit to Azaël Martin (n3rada). 
+* Standardized console output to markdown where applicable. Credit to Azaël Martin (n3rada). 
 * Added DNS support to `/enum:info` module.
 * Added optional `/subsystem` argument to the `olecmdexec` module, which accepts execution using the `CmdExec` or `PowerShell` OLE automation subsystems.
 * Updated test harnesses to reflect CLI changes and new modules.
