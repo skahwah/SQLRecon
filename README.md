@@ -33,7 +33,7 @@ Check out my blog post on the <a href="https://securityintelligence.com/posts/da
 
 # Enumeration Modules
 
-Enumeration Modules do not require an authentication provider to be supplied. These modules must be passed into the enumeration module flag (`/e:, /enum:`).
+Enumeration Modules do not require an authentication provider to be supplied. These modules must be passed into the enumeration module flag (`/e:, /enum:`). The wiki has details on using <a href="https://github.com/skahwah/SQLRecon/wiki/1.-Enumeration">enumeration modules</a>.
 
 ```
 Info    - Show information about the SQL server.
