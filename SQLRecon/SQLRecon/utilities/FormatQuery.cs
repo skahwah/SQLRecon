@@ -121,7 +121,7 @@ namespace SQLRecon.Utilities
 
             return (rpc == false)
                 ? "SELECT * FROM OPENQUERY(\"" + linkedSqlServer + "\", '" + query + "')"
-                : "EXECUTE ('" + query + "') AT " + linkedSqlServer + ";";
+                : "EXECUTE ('" + query + "') AT [" + linkedSqlServer + "];";
         }
 
         /// <summary>
