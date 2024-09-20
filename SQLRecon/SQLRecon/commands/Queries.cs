@@ -28,7 +28,7 @@ namespace SQLRecon.Commands
         
         internal static readonly string CreateAssembly = "CREATE ASSEMBLY {0} FROM 0x{1} WITH PERMISSION_SET = UNSAFE;";
         
-        internal static readonly string CreateLdapServer = "use msdb; CREATE ASSEMBLY {0} AUTHORIZATION [dbo] FROM 0x{1} WITH PERMISSION_SET = UNSAFE;";
+        internal static readonly string CreateLdapServer = "CREATE ASSEMBLY {0} AUTHORIZATION [dbo] FROM 0x{1} WITH PERMISSION_SET = UNSAFE;";
         
         internal static readonly string DeleteAgentJob = "use msdb; EXEC dbo.sp_delete_job  @job_name = '{0}';";
         
@@ -36,7 +36,9 @@ namespace SQLRecon.Commands
         
         internal static readonly string DeleteSccmUser = "Delete from [dbo].[RBAC_ExtendedPermissions] where ";
         
-        internal static readonly string DropAdsiAssembly = "use msdb; DROP ASSEMBLY IF EXISTS {0};";
+        internal static readonly string DropAdsiAssembly = "DROP ASSEMBLY IF EXISTS {0};";
+
+        internal static readonly string DropAdsiFunction = "DROP FUNCTION IF EXISTS {0};";
         
         internal static readonly string DropClrAssembly = "DROP ASSEMBLY IF EXISTS {0};";
         

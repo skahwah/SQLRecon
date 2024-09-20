@@ -328,7 +328,7 @@ namespace SQLRecon.Modules
                 { "rpc_drop_clr_hash", string.Format(Query.DropClrHash, dllHash ) },
                 { "rpc_add_clr_hash", string.Format(Query.AddClrHash, dllHash, dllPath ) },
                 { "list_trusted_assemblies", Query.GetTrustedAssemblies },
-                { "rpc_drop_function", string.Format(Query.DropClrHash, function ) }, 
+                { "rpc_drop_function", string.Format(Query.DropAdsiFunction, function ) }, 
                 { "rpc_drop_assembly", string.Format(Query.DropAdsiAssembly, assem )},
                 { "rpc_create_ldap_server", string.Format(Query.CreateLdapServer, assem, dllBytes) },
                 { "rpc_create_assembly", string.Format(Query.CreateAssembly, assem, dllBytes) },
