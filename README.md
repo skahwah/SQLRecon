@@ -226,6 +226,7 @@ The following people have contributed either directly or indirectly to various a
 * Updated Wiki.
 </details>
 
+<details>
 <summary>v3.8</summary>
 
 * Added logic to support the execution of CLR assemblies on SQL Server 2016 and below. This is for the clr module. Execution supported in all contexts.
