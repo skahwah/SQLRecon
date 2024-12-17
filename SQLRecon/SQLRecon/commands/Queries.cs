@@ -80,6 +80,8 @@ namespace SQLRecon.Commands
         
         internal static readonly string GetDatabases = "SELECT dbid, name, crdate, filename FROM master.dbo.sysdatabases;";
         
+        internal static readonly string GetDatabaseAccess = "SELECT name FROM sys.databases WHERE HAS_DBACCESS(name) = 1;";
+        
         internal static readonly string GetDatabaseUsers = "SELECT name AS username, create_date, modify_date, type_desc AS type, authentication_type_desc AS authentication_type FROM sys.database_principals WHERE type NOT IN ('A', 'R', 'X') AND sid IS NOT null AND name NOT LIKE '##%' ORDER BY modify_date DESC;";
         
         internal static readonly string GetDomainName = "SELECT DEFAULT_DOMAIN();";

@@ -25,6 +25,7 @@ namespace SQLRecon.Modules
                 { "user_name", Query.UserName },
                 { "roles", Query.Roles },
                 { "server_permissions", string.Format(Query.GetPermissions, "SERVER") },
+                { "database_access", string.Format(Query.GetDatabaseAccess) },
                 { "database_permissions", string.Format(Query.GetPermissions, "DATABASE") }
             };
             
@@ -42,6 +43,11 @@ namespace SQLRecon.Modules
             Print.Status("Server Permissions:", true);
             Console.WriteLine();
             Console.WriteLine(Sql.CustomQuery(con, queries["server_permissions"]));
+            Console.WriteLine();
+            
+            Print.Status("Database Access:", true);
+            Console.WriteLine();
+            Console.WriteLine(Sql.CustomQuery(con, queries["database_access"]));
             Console.WriteLine();
             
             Print.Status("Database Permissions:", true);
@@ -107,6 +113,7 @@ namespace SQLRecon.Modules
                 { "user_name", Query.UserName },
                 { "roles", Query.Roles },
                 { "server_permissions", string.Format(Query.GetPermissions, "SERVER") },
+                { "database_access", string.Format(Query.GetDatabaseAccess) },
                 { "database_permissions", string.Format(Query.GetPermissions, "DATABASE") }
             };
 
@@ -123,6 +130,11 @@ namespace SQLRecon.Modules
             Print.Status("Server Permissions:", true);
             Console.WriteLine();
             Console.WriteLine(Sql.CustomQuery(con, queries["server_permissions"]));
+            Console.WriteLine();
+            
+            Print.Status("Database Access:", true);
+            Console.WriteLine();
+            Console.WriteLine(Sql.CustomQuery(con, queries["database_access"]));
             Console.WriteLine();
             
             Print.Status("Database Permissions:", true);

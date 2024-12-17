@@ -217,6 +217,15 @@ The following people have contributed either directly or indirectly to various a
 # History
 
 <details>
+<summary>v3.9</summary>
+
+* Added databases that the user has access to in the `whoami` module (JBalanza).
+* Corrected an issue in the `adsi` module where the LDAP server does not need to be added to the msdb database, also the created function is now dropped properly.
+* Corrected an issue where RPC queries that have an AT statement fail on the destination server if the supplied hostname is a FQDN.
+* Updated README.
+* Updated Wiki.
+</details>
+
 <summary>v3.8</summary>
 
 * Added logic to support the execution of CLR assemblies on SQL Server 2016 and below. This is for the clr module. Execution supported in all contexts.
