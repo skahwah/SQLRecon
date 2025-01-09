@@ -100,7 +100,7 @@ namespace SQLRecon.Modules
                 { "ActiveSessions", Query.GetActiveSessions }
             };
             
-            // Check to see if the user is a sysadmin. Consider linked SQL srver chains.
+            // Check to see if the user is a sysadmin. Consider linked SQL server chains.
             bool sysadmin = (linkedSqlServerChain == null)
                 ? Roles.CheckLinkedRoleMembership(Var.Connect, "sysadmin", linkedSqlServer)
                 : Roles.CheckLinkedRoleMembership(Var.Connect, "sysadmin", null, linkedSqlServerChain);
