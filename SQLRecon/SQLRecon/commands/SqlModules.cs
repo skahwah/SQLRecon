@@ -1071,7 +1071,7 @@ namespace SQLRecon.Commands
                         return true;
                     case "impersonation":
                         // Check to see if the supplied user can be impersonated.
-                        if (Roles.CheckImpersonation(Var.Connect, Var.Impersonate))
+                        if (Roles.CheckImpersonation(Var.Connect, Var.Impersonate) || Roles.CheckRoleMembership(Var.Connect, "sysadmin"))
                         {
                             return true;
                         }
