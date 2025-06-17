@@ -54,6 +54,8 @@ namespace SQLRecon.Commands
                     {"decryptcredentials", new[] { 0, -1 }},
                     {"logons", new[] { 0, 1 }},
                     {"sites", new[] { 0, 1 }},
+                    {"cidata", new[] { 0, 1 }},
+                    {"scriptdata", new[] { 0, 1 }},
                     {"taskdata", new[] { 0, 1 }},
                     {"tasklist", new[] { 0, 1 }},
                     {"users", new[] { 0, 1 }},

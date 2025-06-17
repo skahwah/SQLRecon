@@ -123,7 +123,11 @@ namespace SQLRecon.Commands
         internal static readonly string GetSccmPrivileges = "select LogonName, RoleName from [dbo].[v_SecuredScopePermissions]";
         
         internal static readonly string GetSccmSites = "select * from [dbo].[DPInfo]";
-        
+
+        internal static readonly string GetSccmCIData = "select SDMPackageDigest, DateCreated from [dbo].[vSMS_ConfigurationItems] where CIType_ID = 3";
+
+        internal static readonly string GetSccmScriptData = "select ScriptName, ScriptDescription, Script, ParamsDefinition, LastUpdateTime from [dbo].[Scripts]";
+
         internal static readonly string GetSccmTaskData = "select PkgID, Name, Sequence from [dbo].[vSMS_TaskSequencePackage]";
         
         internal static readonly string GetSccmTaskList = "select PkgID, Name from [dbo].[vSMS_TaskSequencePackage]";

@@ -168,6 +168,36 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
+        /// The cidata method recovers all configuration items that are configured to run scripts, which may contain hardcoded credentials
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// and impersonation.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void cidata()
+        {
+            // Check if the required arguments are in place, otherwise, gracefully exit.
+            if (CheckSccmArguments.Impersonation(Var.Context) == false) return;
+
+            Sccm.CIData(Var.Connect, Var.Impersonate);
+        }
+
+        /// <summary>
+        /// The scriptdata method recovers all scripts stored in the SCCM
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// and impersonation.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void scriptdata()
+        {
+            // Check if the required arguments are in place, otherwise, gracefully exit.
+            if (CheckSccmArguments.Impersonation(Var.Context) == false) return;
+
+            Sccm.ScriptData(Var.Connect, Var.Impersonate);
+        }
+
+        /// <summary>
         /// The taskdata method recovers all task sequences stored in the SCCM
         /// database and decrypts them to plaintext.
         /// This module supports execution against SQL server using a standard authentication context,

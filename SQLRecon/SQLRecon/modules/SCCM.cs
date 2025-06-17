@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Xml.Linq;
 using System.Linq;
 using System.Text;
 using System.Data.SqlClient;
@@ -657,7 +658,147 @@ namespace SQLRecon.Modules
                 ? Sql.CustomQuery(con, Format.ImpersonationQuery(impersonate, Query.GetSccmSites))
                 : Sql.CustomQuery(con, Query.GetSccmSites));
         }
-        
+
+        /// <summary>
+        /// The CIData method recovers all configuration items configured to run scripts, which may contain credentials or other sensitive material
+        /// for joining systems to domains, mapping shares, running commands, etc.
+        /// Impersonation is supported.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="impersonate"></param>
+        internal static void CIData(SqlConnection con, string impersonate = null)
+        {
+            if (_checkDatabase(con, impersonate) == false)
+                // Go no further
+                return;
+
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            string query = !string.IsNullOrEmpty(impersonate)
+                ? Format.ImpersonationQuery(impersonate, Query.GetSccmCIData)
+                : Query.GetSccmCIData;
+
+            // Use custom request formatter, so we can get bytes back.
+            using SqlCommand command = new(query, con);
+            using SqlDataReader dataReader = command.ExecuteReader();
+
+            if (dataReader.HasRows)
+            {
+                while (dataReader.Read())
+                {
+
+                    string rawXML = dataReader.GetFieldValue<string>(0);
+                    Print.Status("Gathered non-default configuration item", true);
+                    if (rawXML == null || rawXML.IndexOf("scriptbody", StringComparison.OrdinalIgnoreCase) == -1)
+                    {
+                        Print.Status("CI not found to contain a script - skipping", true);
+                        continue;
+                    }
+
+                    XDocument xmlDoc = XDocument.Parse(rawXML);
+                    IEnumerable<XElement> scripts = xmlDoc.Descendants().Where(x => x.Name.LocalName == "DiscoveryScriptBody" || x.Name.LocalName == "RemediationScriptBody");
+
+                    if(scripts.Count() > 0)
+                    {
+                        Print.Nested("Recovered CI containing scripts", true);
+                        Print.Nested($"CI Last Updated: {dataReader.GetFieldValue<DateTime>(1)}", true);
+                    }
+
+                    foreach(XElement ciScript in scripts)
+                    {                        
+                        string scriptType = ciScript.Attribute("ScriptType").Value;
+
+                        if(scriptType == null || scriptType.Length == 0)
+                        {
+                            scriptType = "Unknown";
+                        }
+                        string content = ciScript.Value.Trim();
+
+                        Console.WriteLine();
+                        Print.Status(ciScript.Name.LocalName + " -- Script type: " + scriptType, true);
+                        Console.WriteLine(content); 
+                    }
+                    Console.WriteLine();
+                }
+            }
+            else
+            {
+                Print.Error("No SCCM Configuration Items exist", true);
+            }
+        }
+
+        /// <summary>
+        /// The ScriptData method recovers all scripts stored in the SCCM
+        /// database and decrypts them to plaintext. Scripts can contain credentials
+        /// for joining systems to domains, mapping shares, running commands, etc.
+        /// Impersonation is supported.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="impersonate"></param>
+        internal static void ScriptData(SqlConnection con, string impersonate = null)
+        {
+            if (_checkDatabase(con, impersonate) == false)
+                // Go no further
+                return;
+
+            // If impersonation is set, then prepend all queries with the
+            // "EXECUTE AS LOGIN = '" + impersonate + "'; " statement.
+            string query = !string.IsNullOrEmpty(impersonate)
+                ? Format.ImpersonationQuery(impersonate, Query.GetSccmScriptData)
+                : Query.GetSccmScriptData;
+
+            // Use custom request formatter, so we can get bytes back.
+            using SqlCommand command = new(query, con);
+            using SqlDataReader dataReader = command.ExecuteReader();
+
+            if (dataReader.HasRows)
+            {
+                while (dataReader.Read())
+                {
+                    byte[] hexEncodedBlob = dataReader.GetFieldValue<byte[]>(2);
+
+                    Console.WriteLine();
+                    Print.Status("Gathered encoded script", true);
+                    Print.Nested($"Script Name: {dataReader.GetFieldValue<string>(0)}", true);
+                    if (dataReader.GetFieldValue<string>(0).Equals("CMPivot", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Print.Nested("Skipping built-in CMPivot script", true);
+                        continue;
+                    }
+                    try
+                    {
+                        Print.Nested($"Script Description: {dataReader.GetFieldValue<string>(1)}", true);
+                    }
+                    catch { }
+                    
+                    Print.Nested($"Script Last Updated: {dataReader.GetFieldValue<DateTime>(4)}", true);
+
+                    string scriptParams = dataReader.GetFieldValue<string>(3);
+                    bool parseParams = false;
+                    if (scriptParams != null && scriptParams.Length > 0)
+                    {
+                        parseParams = true;
+                        Print.Nested("Note: Script contains parameters, will also parse these", true);
+                    }
+
+                    Console.WriteLine();
+                    Print.Status("Script:", true);
+                    Console.WriteLine(_GetPrintableData(hexEncodedBlob));                    
+
+                    if (parseParams)
+                    {
+                        Console.WriteLine();
+                        Print.Status("Script Params: ", true);
+                        Console.WriteLine(Encoding.ASCII.GetString(Convert.FromBase64String(scriptParams)));
+                    }
+                }
+            }
+            else
+            {
+                Print.Error("No SCCM tasks exist", true);
+            }
+        }
+
         /// <summary>
         /// The TaskData method recovers all task sequences stored in the SCCM
         /// database and decrypts them to plaintext. Task sequences can contain credentials
@@ -874,6 +1015,40 @@ namespace SQLRecon.Modules
                 tdes.Clear();
             }
             return (Encoding.Unicode.GetString(decrypted));
+        }
+
+        /// <summary>
+        /// The _getPrintableData method converts a format-prepended byte array to a string.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        private static string _GetPrintableData(byte[] data)
+        {
+            if (data == null || data.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            //UTF-8 with BOM
+            if (data.Length >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF)
+            {
+                return Encoding.UTF8.GetString(data, 3, data.Length - 3); 
+            }
+            //UTF-16 (little endian)
+            else if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xFE)
+            {
+                return Encoding.Unicode.GetString(data, 2, data.Length - 2); 
+            }
+            //UTF-16 (big endian)
+            else if (data.Length >= 2 && data[0] == 0xFE && data[1] == 0xFF)
+            {
+                return Encoding.BigEndianUnicode.GetString(data, 2, data.Length - 2); 
+            }
+            //No prepend - assume UTF-8 without BOM
+            else
+            {                
+                return Encoding.UTF8.GetString(data);
+            }
         }
     }
 
