@@ -86,6 +86,7 @@ namespace SQLRecon.Commands
                      */
                     
                     {"agentstatus", new[] { 0, 1, 1 }},
+                    {"auditstatus", new[] { 0, 1, 1 }},
                     {"checkrpc", new[] { 0, 1, 1 }},
                     {"databases", new[] { 0, 1, 1 }},
                     {"disableclr", new[] { 0, 1, 1 }},

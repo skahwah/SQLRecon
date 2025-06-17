@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 36
+$global:modules = 37
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -83,7 +83,7 @@ Write-Output "------------------------------------------------------------------
 Write-Output ""
 
 
-# Add test cases in this area. In this case there are 63, which is why $global:modules is set to 63.
+# Add test cases in this area. In this case there are 37, which is why $global:modules is set to 37.
 Write-Output ""
 Write-Output "[+] Executing commands - expected to fail to validate error handling"
 Write-Output ""
@@ -94,13 +94,13 @@ Execute "$sqlreconPath /auth:$authentication /host:$server1 /link:$server2 /m:di
 Write-Output ""
 Write-Output "[+] Executing unprivileged commands"
 Write-Output ""
-# Add test cases in this area. In this case there are 36, which is why $global:modules is set to 36.
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /m:info"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /m:whoami"
 Execute "$sqlreconPath /a:$authentication /h:$server3 /l:$server4 /m:users"
 Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:links"
 Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:impersonate"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:databases"
+Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:auditstatus"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /m:checkrpc"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:tables /db:Payments"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /m:query /c:'select @@servername'"

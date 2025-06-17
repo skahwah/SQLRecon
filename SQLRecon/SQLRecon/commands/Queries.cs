@@ -70,6 +70,8 @@ namespace SQLRecon.Commands
         
         internal static readonly string GetAuthenticationMode = "DECLARE @AuthenticationMode INT EXEC master.dbo.xp_instance_regread N'HKEY_LOCAL_MACHINE', N'Software\\Microsoft\\MSSQLServer\\MSSQLServer', N'LoginMode', @AuthenticationMode OUTPUT (SELECT CASE @AuthenticationMode WHEN 1 THEN 'Windows Authentication' WHEN 2 THEN 'Windows and SQL Server Authentication' ELSE 'Unknown' END);";
         
+        internal static readonly string GetAuditStatus = "SELECT SERVERPROPERTY('IsAuditEnabled') AS IsAuditEnabled;";
+
         internal static readonly string GetClustered = "SELECT CASE  SERVERPROPERTY('IsClustered') WHEN 0 THEN 'No' ELSE 'Yes' END";
         
         internal static readonly string GetColumns = "use {0}; SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{1}' ORDER BY ORDINAL_POSITION;";

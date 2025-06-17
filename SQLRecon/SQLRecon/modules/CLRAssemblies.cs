@@ -475,8 +475,8 @@ namespace SQLRecon.Modules
         private static string[] _convertDLLToSQLBytesFile(string dll)
         {
             string[] dllArr = new string[2];
-            string dllHash = "";
-            string dllBytes = "";
+            var dllHash = new System.Text.StringBuilder(128); // SHA-512 hash is 128 hex chars
+            var dllBytes = new System.Text.StringBuilder();
 
             // Read the DLL, create an SHA-512 hash for it and convert the DLL to SQL compatible bytes.
             try
@@ -491,7 +491,7 @@ namespace SQLRecon.Modules
                     {
                         foreach (byte hash in sha512.ComputeHash(fileStream))
                         {
-                            dllHash += hash.ToString("x2");
+                            dllHash.Append(hash.ToString("x2"));
                         }
                     }
                 }
@@ -499,7 +499,7 @@ namespace SQLRecon.Modules
                 // Read the local dll as bytes and store into the dllBytes variable, otherwise, the DLL will need to be on the SQL server.
                 foreach (Byte b in File.ReadAllBytes(dll))
                 {
-                    dllBytes += b.ToString("X2");
+                    dllBytes.Append(b.ToString("X2"));
                 }
 
             }
@@ -508,8 +508,8 @@ namespace SQLRecon.Modules
                 Print.Error($"Unable to load {dll}", true);
             }
 
-            dllArr[0] = dllHash;
-            dllArr[1] = dllBytes;
+            dllArr[0] = dllHash.ToString();
+            dllArr[1] = dllBytes.ToString();
             return dllArr;
         }
 
@@ -522,8 +522,8 @@ namespace SQLRecon.Modules
         private static string[] _convertDLLToSQLBytesWeb(string dll)
         {
             string[] dllArr = new string[2];
-            string dllHash = "";
-            string dllBytes = "";
+            var dllHash = new System.Text.StringBuilder(128); // SHA-512 hash is 128 hex chars
+            var dllBytes = new System.Text.StringBuilder();
 
             try
             {
@@ -545,12 +545,12 @@ namespace SQLRecon.Modules
 
                 foreach (var hash in sha512.ComputeHash(dllByteArray))
                 {
-                    dllHash += hash.ToString("x2");
+                    dllHash.Append(hash.ToString("x2"));
                 }
                 // Read the local dll as bytes and store into the dllBytes variable, otherwise, the DLL will need to be on the SQL server.
                 foreach (Byte b in dllByteArray)
                 {
-                    dllBytes += b.ToString("X2");
+                    dllBytes.Append(b.ToString("X2"));
                 }
             }
             catch (Exception ex)
@@ -558,8 +558,8 @@ namespace SQLRecon.Modules
                 Print.Error($"Unable to download DLL from {ex}", true);
             }
 
-            dllArr[0] = dllHash;
-            dllArr[1] = dllBytes;
+            dllArr[0] = dllHash.ToString();
+            dllArr[1] = dllBytes.ToString();
             return dllArr;
         }
 

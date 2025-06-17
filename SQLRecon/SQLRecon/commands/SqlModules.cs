@@ -162,6 +162,38 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
+        /// The auditstatus method checks to see if SQL server has auditing in place.
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// impersonation, linked SQL servers, and chained SQL servers.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void auditstatus()
+        {
+            switch(Var.Context) 
+            { 
+                case "standard": 
+                    _query = Query.GetAuditStatus;
+                    break;
+                case "impersonation": 
+                    _query = Format.ImpersonationQuery(Var.Impersonate, Query.GetAuditStatus);
+                    break;
+                case "linked":
+                    _query = Format.LinkedQuery(Var.LinkedSqlServer, Query.GetAuditStatus);
+                    break;
+                case "chained":
+                    _query = Format.LinkedChainQuery(Var.LinkedSqlServersChain, Query.GetAuditStatus);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+            
+            Console.WriteLine();
+            Console.WriteLine(Sql.CustomQuery(Var.Connect, _query));
+        }
+
+        /// <summary>
         /// The checkrpc method is used against the initial SQL server to
         /// identify what systems can have RPC enabled.
         /// This module supports execution against SQL server using a standard authentication context,

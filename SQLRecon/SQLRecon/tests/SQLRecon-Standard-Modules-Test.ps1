@@ -9,7 +9,7 @@
     changed to match the number of test cases you execute.
 #>
 $global:count = 1
-$global:modules = 71
+$global:modules = 72
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -81,7 +81,7 @@ Write-Output "[+] Starting test cases against $modules modules at $global:timest
 Write-Output "---------------------------------------------------------------------"
 Write-Output ""
 
-# Add test cases in this area. In this case there are 71, which is why $global:modules is set to 71.
+# Add test cases in this area. In this case there are 72, which is why $global:modules is set to 72.
 Write-Output ""
 Write-Output "[+] Executing commands - expected to fail to validate error handling"
 Write-Output ""
@@ -124,6 +124,7 @@ Execute "$sqlreconPath /enum:sqlspns"
 Execute "$sqlreconPath /enum:sqlspns /domain:kawalabs.local"
 Execute "$sqlreconPath /enum:info /port:1434 /timeout:1 /host:172.16.10.101,$server2"
 Execute "$sqlreconPath /auth:$authentication /host:$server2,$server3 /m:checkrpc"
+Execute "$sqlreconPath /auth:$authentication /host:$server2,$server3 /m:auditstatus"
 Execute "$sqlreconPath /auth:$authentication /host:$server2,$server3 /m:databases"
 Execute "$sqlreconPath /auth:$authentication /host:$server2,$server3 /m:impersonate"
 Execute "$sqlreconPath /auth:$authentication /host:$server2,$server3 /m:info"

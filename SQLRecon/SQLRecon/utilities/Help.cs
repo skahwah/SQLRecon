@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.8");
+            Console.WriteLine("Version: 3.10");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
@@ -76,6 +76,7 @@ namespace SQLRecon.Utilities
 
             Dictionary<string,string> dict = new Dictionary<string, string>()
             {
+                { "AuditStatus","[M,I,L,C] Check if SQL auditing is in place." },
                 { "CheckRpc","[M,I,L,C] Obtain a list of linked servers and their RPC status." },
                 { "Databases","[M,I,L,C] Display all databases." },
                 { "Impersonate","[M,I,L,C] Enumerate user accounts that can be impersonated." },

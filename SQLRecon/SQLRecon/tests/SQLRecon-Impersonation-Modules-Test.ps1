@@ -9,7 +9,7 @@
     changed to match the number of test cases you execute.
 #>
 $global:count = 1
-$global:modules = 38
+$global:modules = 39
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -85,7 +85,7 @@ Write-Output "[+] Starting test cases against $modules modules at $global:timest
 Write-Output "---------------------------------------------------------------------"
 Write-Output ""
 
-# Add test cases in this area. In this case there are 38, which is why $global:modules is set to 38.
+# Add test cases in this area. In this case there are 39, which is why $global:modules is set to 39.
 Write-Output ""
 Write-Output "[+] Executing commands - expected to fail to validate error handling"
 Write-Output ""
@@ -95,6 +95,7 @@ Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:imp
 Write-Output ""
 Write-Output "[+] Executing unprivileged commands"
 Write-Output ""
+Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:auditstatus"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:checkrpc"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:databases"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:info"
