@@ -54,6 +54,8 @@ namespace SQLRecon.Commands
                     {"decryptcredentials", new[] { 0, -1 }},
                     {"logons", new[] { 0, 1 }},
                     {"sites", new[] { 0, 1 }},
+                    {"cidata", new[] { 0, 1 }},
+                    {"scriptdata", new[] { 0, 1 }},
                     {"taskdata", new[] { 0, 1 }},
                     {"tasklist", new[] { 0, 1 }},
                     {"users", new[] { 0, 1 }},
@@ -84,6 +86,7 @@ namespace SQLRecon.Commands
                      */
                     
                     {"agentstatus", new[] { 0, 1, 1 }},
+                    {"auditstatus", new[] { 0, 1, 1 }},
                     {"checkrpc", new[] { 0, 1, 1 }},
                     {"databases", new[] { 0, 1, 1 }},
                     {"disableclr", new[] { 0, 1, 1 }},

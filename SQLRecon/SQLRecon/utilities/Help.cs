@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.8");
+            Console.WriteLine("Version: 3.10");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
@@ -76,6 +76,7 @@ namespace SQLRecon.Utilities
 
             Dictionary<string,string> dict = new Dictionary<string, string>()
             {
+                { "AuditStatus","[M,I,L,C] Check if SQL auditing is in place." },
                 { "CheckRpc","[M,I,L,C] Obtain a list of linked servers and their RPC status." },
                 { "Databases","[M,I,L,C] Display all databases." },
                 { "Impersonate","[M,I,L,C] Enumerate user accounts that can be impersonated." },
@@ -116,7 +117,9 @@ namespace SQLRecon.Utilities
                 { "Users", "[I] Display all SCCM users." },
                 { "Sites", "[I] Display all other sites with data stored." },
                 { "Logons", "[I] Display all associated SCCM clients and the last logged in user." },
+                { "CIData", "[I] Display all SCCM configuration items configured to run scripts." },
                 { "Credentials", "[I] Display encrypted credentials vaulted by SCCM." },
+                { "ScriptData", "[I] Display all configured SCCM scripts." },
                 { "TaskList", "[I] Display all task sequences, but do not access the task data contents." },
                 { "TaskData", "[I] Decrypt all task sequences to plaintext." },
                 { "[*] DecryptCredentials", "[*] Decrypt an SCCM credential blob. Must execute in a high-integrity or SYSTEM process on the SCCM server." },

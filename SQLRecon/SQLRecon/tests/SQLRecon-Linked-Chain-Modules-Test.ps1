@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 30
+$global:modules = 31
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -81,7 +81,7 @@ Write-Output "[+] Starting test cases against $modules modules at $global:timest
 Write-Output "---------------------------------------------------------------------"
 Write-Output ""
 
-# Add test cases in this area. In this case there are 30, which is why $global:modules is set to 30.
+# Add test cases in this area. In this case there are 31, which is why $global:modules is set to 31.
 Write-Output ""
 Write-Output "[+] Executing commands - expected to fail to validate error handling"
 Write-Output ""
@@ -97,6 +97,7 @@ Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$serv
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$server4 /chain /m:whoami"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$server4 /chain /m:users"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$server4 /chain /m:databases"
+Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$server4 /chain /m:auditstatus"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:impersonate"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:links"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:tables /db:master"

@@ -206,10 +206,17 @@ namespace SQLRecon.Modules
         /// <returns></returns>
         internal static bool CheckImpersonation(SqlConnection con, string user)
         {
+
+            // If the user is a sysadmin, return true, as they can impersonate any user.
+            if (Roles.CheckRoleMembership(Var.Connect, "sysadmin"))
+            {
+                return true;
+            }
+
             user = user.Replace("'", "''");
-            
+
             // Check if a specific user can be impersonated
-            return Sql.Query(con,string.Format(Query.CheckImpersonation, user)).Equals("1");
+            return Sql.Query(con, string.Format(Query.CheckImpersonation, user)).Equals("1");
         }
 
         /// <summary>

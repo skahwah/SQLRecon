@@ -93,6 +93,7 @@ SQL modules are executed against one or more instance of Microsoft SQL server. T
 
 | Module Name | Description | Impersonation | Linked Execution | Linked Chain Execution | Requires Privileged Context |
 | ----------- | ----------- | ------------- | ---------------- | ---------------------- | --------------------------- |
+| `AuditStatus` | Check if SQL auditing is in place. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
 | `CheckRpc` | Obtain a list of linked servers and their RPC status. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
 | `Databases` | Display all databases. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
 | `Impersonate` | Enumerate user accounts that can be impersonated. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :negative_squared_cross_mark: |
@@ -174,6 +175,8 @@ The wiki has details on using each module against an <a href="https://github.com
 | `DecryptCredentials` | Decrypt an SCCM credential blob. Must execute in a high-integrity or SYSTEM process on the SCCM server. | :x: | :heavy_check_mark: |
 | `AddAdmin /user:DOMAIN\USERNAME /sid:SID` | Elevate a supplied account to a 'Full Administrator' in SCCM. | :white_check_mark: | :heavy_check_mark: |
 | `RemoveAdmin /user:ADMIN_ID /remove:STRING` | Removes privileges of a user, or remove a user entirely from the SCCM database. | :white_check_mark: | :heavy_check_mark: |
+| `ScriptData` | Returns all scripts configured to run in SCCM. | :white_check_mark: | :heavy_check_mark: |
+| `CIData` | Returns all CIs configured to run scripts in SCCM.  | :white_check_mark: | :heavy_check_mark: |
 
 
 <details>
@@ -209,12 +212,26 @@ The following people have contributed either directly or indirectly to various a
 
 - Adam Chester [(xpn)](https://github.com/xpn)
 - Azaël Martin [(n3rada)](https://github.com/n3rada)
+- Crusher [(chryzsh)](https://github.com/chryzsh)
 - Daniel Duggan [(rasta-mouse)](https://github.com/rasta-mouse)
 - Dave Cossa [(G0ldenGunSec)](https://github.com/G0ldenGunSec)
 - Dwight Hohnstein [(djhohnstein)](https://github.com/djhohnstein)
+- Javier Balanza [(JBalanza)](https://github.com/JBalanza)
 - Joshua Magri [(passthehashbrowns)](https://github.com/passthehashbrowns)
 
 # History
+
+<details>
+<summary>v3.10</summary>
+
+* Fixed an issue in the `impersonate` module to handle sysadmin cases correctly (n3rada).
+* Implemeted two new SCCM modules `scriptdata` and `cidata` (G0ldenGunSec).
+* Optimized CLR DLL loading and execution times (chryzsh).
+* Created the `auditstatus` module to check if SQL auditing is in place (chryzsh).
+* Updated Test Cases.
+* Updated README.
+* Updated Wiki.
+</details>
 
 <details>
 <summary>v3.9</summary>

@@ -162,6 +162,38 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
+        /// The auditstatus method checks to see if SQL server has auditing in place.
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// impersonation, linked SQL servers, and chained SQL servers.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void auditstatus()
+        {
+            switch(Var.Context) 
+            { 
+                case "standard": 
+                    _query = Query.GetAuditStatus;
+                    break;
+                case "impersonation": 
+                    _query = Format.ImpersonationQuery(Var.Impersonate, Query.GetAuditStatus);
+                    break;
+                case "linked":
+                    _query = Format.LinkedQuery(Var.LinkedSqlServer, Query.GetAuditStatus);
+                    break;
+                case "chained":
+                    _query = Format.LinkedChainQuery(Var.LinkedSqlServersChain, Query.GetAuditStatus);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+            
+            Console.WriteLine();
+            Console.WriteLine(Sql.CustomQuery(Var.Connect, _query));
+        }
+
+        /// <summary>
         /// The checkrpc method is used against the initial SQL server to
         /// identify what systems can have RPC enabled.
         /// This module supports execution against SQL server using a standard authentication context,
@@ -553,11 +585,13 @@ namespace SQLRecon.Commands
             // Extract all user names
             List<string> logins = Print.ExtractColumnValues(_query, "name");
 
-            Dictionary<string, string> impersonationLogins = new Dictionary<string, string>();
+            Dictionary<string, string> impersonationLogins = new();
 
             // Next check to see if the user is a sysadmin
             if (Roles.CheckRoleMembership(Var.Connect, "sysadmin"))
             {
+                // If the user is a sysadmin, they can impersonate any login
+                Print.Status("Current user is a sysadmin and can impersonate any account.", true);
                 if (logins.Any())
                 {
                     foreach (string login in logins)
@@ -568,6 +602,7 @@ namespace SQLRecon.Commands
             }
             else
             {
+                // If not a sysadmin, enumerate all users and check which ones can be impersonated
                 if (logins.Any())
                 {
                     foreach (string login in logins)
@@ -577,6 +612,9 @@ namespace SQLRecon.Commands
                         if (canImpersonate)
                         {
                             impersonationLogins.Add(login, "True");
+                        } else
+                        {
+                            impersonationLogins.Add(login, "False");
                         }
                     }
                 }
@@ -1070,17 +1108,17 @@ namespace SQLRecon.Commands
                     case "standard":
                         return true;
                     case "impersonation":
+                        
                         // Check to see if the supplied user can be impersonated.
                         if (Roles.CheckImpersonation(Var.Connect, Var.Impersonate))
                         {
                             return true;
                         }
-                        else
-                        {
-                            // Go no further
-                            Print.Error($"'{Var.Impersonate}' can not be impersonated on {Var.SqlServer}.", true);
-                            return false;
-                        }
+
+                        // Go no further
+                        Print.Error($"'{Var.Impersonate}' can not be impersonated on {Var.SqlServer}.", true);
+                        return false;
+
                     case "linked" or "chained":
                         // Obtain a list linked SQL servers
                         string sqlOutput = Sql.CustomQuery(Var.Connect, Query.GetLinkedSqlServers);
