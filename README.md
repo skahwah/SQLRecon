@@ -222,6 +222,12 @@ The following people have contributed either directly or indirectly to various a
 # History
 
 <details>
+<summary>v3.11</summary>
+
+* Added functionality to allow for decrypting vaulted credentials in sites configured for High Availability (with active + passive servers)
+</details>
+
+<details>
 <summary>v3.10</summary>
 
 * Fixed an issue in the `impersonate` module to handle sysadmin cases correctly (n3rada).
