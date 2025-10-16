@@ -137,7 +137,9 @@ namespace SQLRecon.Commands
         internal static readonly string GetSccmUsers = "select LogonName, AdminID, SourceSite, DistinguishedName from [dbo].[RBAC_Admins]";
         
         internal static readonly string GetSccmVaultedCredentialPasswords = "select UserName, Usage, Password from [dbo].[vSMS_SC_UserAccount]";
-        
+
+        internal static readonly string GetSiteMasterKey = "Select Top 1 Props from [dbo].[vSMS_SC_SysResUse_SDK] where RoleName = 'SMS Site Server' and ServerName like '%{0}%'";
+
         internal static readonly string GetSccmVaultedCredentials = "select UserName, Usage from [dbo].[vSMS_SC_UserAccount]";
         
         internal static readonly string GetServicePid = "SELECT SERVERPROPERTY('processid');";
