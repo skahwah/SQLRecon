@@ -419,7 +419,13 @@ namespace SQLRecon.Commands
                     break;
                 case "impersonation": 
                     Config.ModuleToggle(Var.Connect, "rpc", "false", Var.Arg1, Var.Impersonate);
-                    break; 
+                    break;
+                case "linked":
+                    Config.LinkedModuleToggle(Var.Connect, "rpc", "false", Var.LinkedSqlServer, Var.Arg1);
+                    break;
+                case "chained":
+                    Config.LinkedChainModuleToggle(Var.Connect, "rpc", "false", Var.LinkedSqlServersChain, Var.Arg1);
+                    break;
                 default:
                     Print.Error($"'{Var.Context}' is not a valid context.", true);
                     break;
@@ -535,7 +541,13 @@ namespace SQLRecon.Commands
                     break;
                 case "impersonation": 
                     Config.ModuleToggle(Var.Connect, "rpc", "true", Var.Arg1, Var.Impersonate);
-                    break; 
+                    break;
+                case "linked":
+                    Config.LinkedModuleToggle(Var.Connect, "rpc", "true", Var.LinkedSqlServer, Var.Arg1);
+                    break;
+                case "chained":
+                    Config.LinkedChainModuleToggle(Var.Connect, "rpc", "true", Var.LinkedSqlServersChain, Var.Arg1);
+                    break;
                 default:
                     Print.Error($"'{Var.Context}' is not a valid context.", true);
                     break;
@@ -579,16 +591,58 @@ namespace SQLRecon.Commands
         /// </summary>
         public static void impersonate()
         {
-            // First obtain all SQL users and Windows principals.
-            _query = Sql.CustomQuery(Var.Connect, Query.GetSqlUsersAndWindowsPrincipals);
             
+
+            switch (Var.Context)
+            {
+                case "standard":
+                    _query = Query.GetSqlUsersAndWindowsPrincipals;
+                    break;
+                case "impersonation":
+                    _query = Format.ImpersonationQuery(Var.Impersonate, Query.GetSqlUsersAndWindowsPrincipals);
+                    break;
+                case "linked":
+                    _query = Format.LinkedQuery(Var.LinkedSqlServer, Query.GetSqlUsersAndWindowsPrincipals);
+                    break;
+                case "chained":
+                    _query = Format.LinkedChainQuery(Var.LinkedSqlServersChain, Query.GetSqlUsersAndWindowsPrincipals);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+
+            // First obtain all SQL users and Windows principals.
+            string _output = Sql.CustomQuery(Var.Connect, _query);
+
             // Extract all user names
-            List<string> logins = Print.ExtractColumnValues(_query, "name");
+            List<string> logins = Print.ExtractColumnValues(_output, "name");
 
             Dictionary<string, string> impersonationLogins = new();
 
             // Next check to see if the user is a sysadmin
-            if (Roles.CheckRoleMembership(Var.Connect, "sysadmin"))
+
+            bool _isSysadmin = false;
+            switch (Var.Context)
+            {
+                case "standard":
+                    _isSysadmin = Roles.CheckRoleMembership(Var.Connect, "sysadmin");
+                    break;
+                case "impersonation":
+                    _isSysadmin = Roles.CheckRoleMembership(Var.Connect, "sysadmin");
+                    break;
+                case "linked":
+                    _isSysadmin = Roles.CheckLinkedRoleMembership(Var.Connect, "sysadmin", Var.LinkedSqlServer);
+                    break;
+                case "chained":
+                    _isSysadmin = Roles.CheckLinkedRoleMembership(Var.Connect, "sysadmin", Var.LinkedSqlServer, Var.LinkedSqlServersChain);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+
+            if (_isSysadmin)
             {
                 // If the user is a sysadmin, they can impersonate any login
                 Print.Status("Current user is a sysadmin and can impersonate any account.", true);
@@ -607,7 +661,27 @@ namespace SQLRecon.Commands
                 {
                     foreach (string login in logins)
                     {
-                        bool canImpersonate = Roles.CheckImpersonation(Var.Connect, login);
+                        bool canImpersonate = false;
+
+                        switch (Var.Context)
+                        {
+
+                            case "standard":
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                break;
+                            case "impersonation":
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                break;
+                            case "linked":
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer);
+                                break;
+                            case "chained":
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer, Var.LinkedSqlServersChain);
+                                break;
+                            default:
+                                Print.Error($"'{Var.Context}' is not a valid context.", true);
+                                break;
+                        }
 
                         if (canImpersonate)
                         {
@@ -1139,7 +1213,7 @@ namespace SQLRecon.Commands
                         return false;
                 }
             }
-        }
+            }
     }
         
     /// <summary>
@@ -1447,6 +1521,26 @@ namespace SQLRecon.Commands
                     {
                         Print.Error("Must supply a user to impersonate (/i:, /iuser:) and a rhost for this module (/rhost:).", true);
                         // Go no further. Gracefully exit.
+                        return false;
+                    }
+                case "linked":
+                    if (Var.ParsedArguments.ContainsKey("rhost") && !string.IsNullOrEmpty(Var.ParsedArguments["rhost"]))
+                    {
+                        Var.Arg1 = Var.ParsedArguments["rhost"];
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                case "chained":
+                    if (Var.ParsedArguments.ContainsKey("rhost") && !string.IsNullOrEmpty(Var.ParsedArguments["rhost"]))
+                    {
+                        Var.Arg1 = Var.ParsedArguments["rhost"];
+                        return true;
+                    }
+                    else
+                    {
                         return false;
                     }
                 default:

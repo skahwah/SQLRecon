@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace SQLRecon.Utilities
@@ -124,6 +125,13 @@ namespace SQLRecon.Utilities
                 : "EXECUTE ('" + query + "') AT [" + linkedSqlServer + "];";
         }
 
+        internal static string LinkedChainQuery(string[] linkedSqlServerChain, string query, int ticks = 0)
+        {
+            string[] formattedLinkedSqlServerChain = linkedSqlServerChain.Prepend("0").ToArray();
+            return LinkedChainQueryRecurse(formattedLinkedSqlServerChain, query, ticks);
+
+        }
+
         /// <summary>
         /// The LinkedChainQuery method constructs a nested OPENQUERY statement for querying linked SQL servers in a chain.
         /// Credit to Azaël MARTIN (n3rada).
@@ -136,7 +144,7 @@ namespace SQLRecon.Utilities
         /// Calling GetNestedOpenQueryForLinkedServers(new[] { "0", "a", "b", "c", "d" }, "SELECT * FROM SomeTable WHERE 'a'='a'") will produce:
         /// select * from openquery("a", 'select * from openquery("b", ''select * from openquery("c", ''''select * from openquery("d", ''''''SELECT * FROM SomeTable WHERE ''a''=''''a'''''''''')''')'')')
         /// </example>
-        internal static string LinkedChainQuery(string[] linkedSqlServerChain, string query, int ticks = 0)
+        internal static string LinkedChainQueryRecurse(string[] linkedSqlServerChain, string query, int ticks = 0)
         {
             if (linkedSqlServerChain.Length <= 1)
             {
@@ -155,7 +163,7 @@ namespace SQLRecon.Utilities
             string[] subPath = new string[linkedSqlServerChain.Length - 1];
             Array.Copy(linkedSqlServerChain, 1, subPath, 0, linkedSqlServerChain.Length - 1);
 
-            stringBuilder.Append(LinkedChainQuery(subPath, query, ticks + 1));
+            stringBuilder.Append(LinkedChainQueryRecurse(subPath, query, ticks + 1));
             // Recursive call with incremented ticks.
             stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
             stringBuilder.Append(")");
@@ -178,6 +186,13 @@ namespace SQLRecon.Utilities
             for (int i = linkedSqlServerChain.Length - 1; i > 0; i--)
             {
                 string server = linkedSqlServerChain[i];
+                
+                //Need brackets for linked server names in EXEC AT queries, otherwise SQL treats it as a 4 part naming scheme
+                if(server.Contains('.'))
+                {
+                    server = "[" + server + "]";
+                }
+
                 // Double single quotes to escape them in the SQL string
                 currentQuery = $"EXEC ('{currentQuery.Replace("'", "''")}') AT {server}";
             }

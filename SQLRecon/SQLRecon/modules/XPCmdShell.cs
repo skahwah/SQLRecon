@@ -86,7 +86,7 @@ namespace SQLRecon.Modules
                 queries = Format.LinkedChainDictionary(linkedSqlServerChain, queries);
                 
                 // First check to see if xp_cmdshell is enabled.
-                status = Config.LinkedModuleStatus(con, "xp_cmdshell", null, linkedSqlServerChain);
+                status = Config.LinkedModuleStatus(con, "xp_cmdshell", linkedSqlServer, linkedSqlServerChain);
             }
             
             // If /debug is provided, only print the queries then gracefully exit the program.
@@ -122,11 +122,7 @@ namespace SQLRecon.Modules
             {
                 Print.Status($"'{cmd}' executed.", true);
 
-            }    
-            else if (sqlOutput.ToLower().Contains("blocked"))
-            {
-                Print.Error("You need to enable xp_cmdshell.", true);
-            }
+            } 
             else
             {
                 Print.IsOutputEmpty(sqlOutput, true);

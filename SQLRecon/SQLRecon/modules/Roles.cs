@@ -163,7 +163,7 @@ namespace SQLRecon.Modules
             // Test to see if the current principal is a member of any roles.
             foreach (string role in combinedRoles)
             {
-                bool result  = CheckLinkedRoleMembership(con, role.Trim(), linkedSqlServer);
+                bool result  = CheckLinkedRoleMembership(con, role.Trim(), linkedSqlServer, linkedSqlServerChain);
                 
                 if (result)
                 {
@@ -217,6 +217,32 @@ namespace SQLRecon.Modules
 
             // Check if a specific user can be impersonated
             return Sql.Query(con, string.Format(Query.CheckImpersonation, user)).Equals("1");
+        }
+
+        /// <summary>
+        /// The CheckImpersonation method is responsible for determining if a supplied
+        /// user can be impersonated.
+        /// </summary>
+        /// <param name="con"></param>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        internal static bool CheckLinkedServerImpersonation(SqlConnection con, string user, string linkedSqlServer, string[] linkedSqlServerChain = null)
+        {
+            // Format the query, so it is compatible for execution on a linked SQL server.
+            string query = (linkedSqlServerChain == null)
+                ? Format.LinkedQuery(linkedSqlServer, string.Format(Query.CheckImpersonation, user))
+                // Format the query, so it is compatible for execution on the last SQL server specified in a linked chain.
+                : Format.LinkedChainQuery(linkedSqlServerChain, string.Format(Query.CheckImpersonation, user));
+
+            if (Roles.CheckLinkedRoleMembership(Var.Connect, "sysadmin", linkedSqlServer, linkedSqlServerChain))
+            {
+                return true;
+            }
+
+            user = user.Replace("'", "''");
+
+            // Check if a specific user can be impersonated
+            return Sql.Query(con, query).Equals("1");
         }
 
         /// <summary>
