@@ -77,6 +77,10 @@ namespace SQLRecon.Commands
         internal static readonly string GetClustered = "SELECT CASE  SERVERPROPERTY('IsClustered') WHEN 0 THEN 'No' ELSE 'Yes' END";
         
         internal static readonly string GetColumns = "use {0}; SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{1}' ORDER BY ORDINAL_POSITION;";
+
+        internal static readonly string GetCredentialObjects = "SELECT * FROM sys.credentials;";
+
+        internal static readonly string GetProxies = "USE msdb; SELECT proxy_id, name AS proxy_name, credential_id, enabled FROM dbo.sysproxies;";
         
         internal static readonly string GetComputerName = "SELECT @@SERVERNAME;"; 
         

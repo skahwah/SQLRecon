@@ -27,6 +27,12 @@ namespace SQLRecon.Utilities
             _nested(10, "/t:, timeout: -> (OPTIONAL) Defaults to 3s.");
             Console.WriteLine("SqlSpns - Use the current user token to enumerate the AD domain for MSSQL SPNs.");
             _nested(10, "/d:, /domain: -> (OPTIONAL) NETBIOS name or FQDN of domain.");
+            Console.WriteLine("CredentialObjects - Enumerate SQL Server credential objects. Requires authentication.");
+            _nested(10, "/a:, /auth:   -> Authentication provider.");
+            _nested(10, "/h:, /host:   -> SQL server hostname or IP.");
+            Console.WriteLine("Proxies - Enumerate SQL Agent proxy accounts. Requires authentication.");
+            _nested(10, "/a:, /auth:   -> Authentication provider.");
+            _nested(10, "/h:, /host:   -> SQL server hostname or IP.");
             
             Console.WriteLine("");
             _border(90);

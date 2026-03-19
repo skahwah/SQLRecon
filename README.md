@@ -43,6 +43,14 @@ Info    - Show information about the SQL server.
 
 SqlSpns - Use the current user token to enumerate the AD domain for MSSQL SPNs.
           /d:, /domain: -> (OPTIONAL) NETBIOS name or FQDN of domain.
+
+CredentialObjects - Enumerate SQL Server credential objects.
+                    /a:, /auth: -> Authentication provider.
+                    /h:, /host: -> SQL server hostname or IP.
+
+Proxies - Enumerate SQL Agent proxy accounts.
+          /a:, /auth: -> Authentication provider.
+          /h:, /host: -> SQL server hostname or IP.
 ```
 
 # Authentication Providers

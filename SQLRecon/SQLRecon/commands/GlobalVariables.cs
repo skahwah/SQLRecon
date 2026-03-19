@@ -31,6 +31,8 @@ namespace SQLRecon.Commands
             {
                 {"info", 1},
                 {"sqlspns", 0},
+                {"credentialobjects", 0},
+                {"proxies", 0},
             };
 
         internal static Dictionary<string, int[]> SccmModulesAndArgumentCount
