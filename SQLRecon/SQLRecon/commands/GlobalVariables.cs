@@ -80,9 +80,6 @@ namespace SQLRecon.Commands
                      - Impersonation modules in array position 1
                      - Linked modules in array position 2
                                           
-                     The following modules have no Linked or Chain support, and have been set to -1:
-                      - disablerpc
-                      - enablerpc
                      */
                     
                     {"agentstatus", new[] { 0, 1, 1 }},
@@ -101,8 +98,8 @@ namespace SQLRecon.Commands
                     {"users", new[] { 0, 1, 2 }},
                     {"whoami", new[] { 0, 1, 2 }},
                     {"agentcmd", new[] { 1, 2, 2 }},
-                    {"disablerpc", new[] { 1, 2, -1 }},
-                    {"enablerpc", new[] { 1, 2, -1 }},
+                    {"disablerpc", new[] { 1, 2, 1 }},
+                    {"enablerpc", new[] { 1, 2, 1 }},
                     {"olecmd", new[] { 1, 2, 2 }},
                     {"query", new[] { 1, 2, 2 }},
                     {"search", new[] { 1, 2, 3 }},

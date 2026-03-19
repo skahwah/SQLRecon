@@ -510,11 +510,10 @@ namespace SQLRecon.Utilities
                 {
                     // If Var.LinkedSqlServerChain is true, set Var.Context to chained. 
                     Var.Context = "chained";
-                    
-                    // Format the Var.LinkedSqlServers array so that it meets the Format.LinkedChainQuery
-                    // expectation of {"0", "linked sql server", "linked sql server", "linked sql server" ... }
-                    Var.LinkedSqlServersChain = new[] { "0" }.Concat(Var.LinkedSqlServers).ToArray();
-                    
+
+                    //Removed requirements for prepending a 0 element to this list so just have it as is
+                    Var.LinkedSqlServersChain = Var.LinkedSqlServers;
+
                     Print.Status($"Setting the chain path to {Var.SqlServer + " -> " +  string.Join(" -> ", Var.LinkedSqlServers)}", true);
                     Console.WriteLine();
                     Print.Status($"Executing the '{Var.Module}' module on {Var.LinkedSqlServersChain.Last()}", true);

@@ -344,7 +344,7 @@ namespace SQLRecon.Modules
                 queries = Format.LinkedDictionary(linkedSqlServer, queries);
                 
                 // Theis query needs to have several OPENQUERY's prepended in front of it
-                queries.Add("run_ldap_server", Format.LinkedChainQuery(new []{"0", linkedSqlServer,  adsiServer}, 
+                queries.Add("run_ldap_server", Format.LinkedChainQuery(new []{linkedSqlServer,  adsiServer}, 
                                                         string.Format(Query.RunLdapServer, port)));
             }
             else

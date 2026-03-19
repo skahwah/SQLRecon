@@ -68,6 +68,7 @@ namespace SQLRecon.Modules
             // The queries dictionary contains all queries used by this module
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
+                {"get_rpc_status", string.Format(Query.GetRpcStatus, linkedSqlServer.ToLower())},
                 { "get_module_status", string.Format(Query.GetModuleStatus, module) }
             };
 
@@ -78,7 +79,17 @@ namespace SQLRecon.Modules
                 ? Format.LinkedDictionary(linkedSqlServer, queries)
                 : Format.LinkedChainDictionary(linkedSqlServerChain, queries);
 
-            return Sql.Query(con, queries["get_module_status"]).Contains("1");
+            if (module.Equals("rpc"))
+            {
+                // Obtain all SQL server names where RPC is enabled.
+                // Returns 1 for enabled if the supplied sqlServer exists.
+                // Returns 0 for disabled if the supplied sqlServer does not exist.
+                return Sql.CustomQuery(con, queries["get_rpc_status"]).ToLower().Contains("true");
+            }
+            else
+            {
+                    return Sql.Query(con, queries["get_module_status"]).Contains("1");
+            }
         }
 
         /// <summary>
@@ -179,6 +190,7 @@ namespace SQLRecon.Modules
             {
                 { "rpc_enable_advanced_configurations", Query.LinkedEnableAdvancedOptions },
                 { "rpc_toggle_module", string.Format(Query.LinkedToggleModule, module, value) },
+                { "rpc_toggle_rpc", string.Format(Query.ToggleRpc, sqlServer, value) },
             };
 
             // Format all queries so that they are compatible for execution on a linked SQL server.
@@ -207,23 +219,43 @@ namespace SQLRecon.Modules
                 return;
             }
 
-            Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+            if (module.Equals("rpc")){
+                Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+                Sql.CustomQuery(con, queries["rpc_toggle_rpc"]);
 
-            Sql.CustomQuery(con,  queries["rpc_toggle_module"]);
+                bool status = LinkedModuleStatus(con, module, sqlServer);
+                sqlOutput = _printModuleStatus(status, module, value, sqlServer);
 
-            bool status = LinkedModuleStatus(con, module, linkedSqlServer);
-
-            sqlOutput = _printModuleStatus(status, module, value, linkedSqlServer);
-
-            if (!sqlOutput.ToLower().Contains("not have permissions"))
-            {
-                Console.WriteLine(_linkedModuleStatus(con, module, linkedSqlServer));
+                if (status == false && value != "false")
+                {
+                    Print.Error($"Failed to enable/disable RPC on {sqlServer} on {linkedSqlServer}", true);
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine(sqlOutput);
+                }
             }
-            else
-            {
-                Console.WriteLine(sqlOutput);
+            else {
+                Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+
+                Sql.CustomQuery(con, queries["rpc_toggle_module"]);
+
+                bool status = LinkedModuleStatus(con, module, linkedSqlServer);
+
+                sqlOutput = _printModuleStatus(status, module, value, linkedSqlServer);
+
+                if (!sqlOutput.ToLower().Contains("not have permissions"))
+                {
+                    Console.WriteLine(_linkedModuleStatus(con, module, linkedSqlServer));
+                }
+                else
+                {
+                    Console.WriteLine(sqlOutput);
+                }
             }
         }
+        
 
         /// <summary>
         /// The LinkedChainModuleToggle method will enable advanced options, then
@@ -241,7 +273,9 @@ namespace SQLRecon.Modules
             // The dictionary key name for RPC formatted queries must start with RPC
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                { "rpc_toggle_module", string.Format(Query.LinkedChainToggleModule, module, value) }
+                { "rpc_toggle_module", string.Format(Query.LinkedChainToggleModule, module, value) },
+                { "rpc_toggle_rpc", string.Format(Query.LinkedToggleRpc, sqlServer, value) },
+                { "rpc_enable_advanced_configurations", Query.LinkedEnableAdvancedOptions }
             };
 
             // Format all queries so that they are compatible for execution on a linked SQL server.
@@ -275,14 +309,45 @@ namespace SQLRecon.Modules
             // Attempt to toggle the module on the last server in the linked chain
             try
             {
-                // Enable advanced options and the specified module on the last server in the chain.
-                Sql.CustomQuery(con, queries["rpc_toggle_module"]);
+                if (module.Equals("rpc"))
+                {
+                    sqlOutput = Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+                    //If this fails then we should just bail and inform the user so they can enable RPC on the missing link
+                    if (sqlOutput.Contains("is not configured for RPC"))
+                    {
+                        Console.WriteLine(sqlOutput);
+                        return;
+                    }
+                    sqlOutput = Sql.CustomQuery(con, queries["rpc_toggle_rpc"]);
+                    
 
-                Console.WriteLine(_linkedModuleStatus(con, module, null, linkedSqlServerChain));
+                    status = LinkedModuleStatus(con, module, sqlServer, linkedSqlServerChain);
+                    sqlOutput = _printModuleStatus(status, module, value, sqlServer);
+                    
+                    if (status.ToString().ToLower() != value)
+                    {
+                        Print.Error($"Failed to enable/disable RPC on {sqlServer} on {linkedSqlServerChain.Last()}", true);
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine(sqlOutput);
+                    }
+                }
+                else
+                {
+                    // Enable advanced options and the specified module on the last server in the chain.
+                    Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+                    Sql.CustomQuery(con, queries["rpc_toggle_module"]);
+                    Console.WriteLine(_linkedModuleStatus(con, module, null, linkedSqlServerChain));
+                }
+
+               
             }
             catch (Exception ex)
             {
-                Print.Error($"Error enabling module {module} on chain: {ex.Message}", true);
+                Print.Error($"Error enabling/disabling module {module} on chain: {ex.Message}", true);
+                
             }
         }
 
@@ -382,6 +447,14 @@ namespace SQLRecon.Modules
             else if (status == true && value.Equals("1"))
             {
                 return Print.Success($"Enabled {module} on {sqlServer}.");
+            }
+            else if (status == true && value.Equals("true"))
+            {
+                return Print.Success($"Enabled {module} on {sqlServer}.");
+            }
+            else if (status == false && value.Equals("false"))
+            {
+                return Print.Success($"Disabled {module} on {sqlServer}.");
             }
             else if (status == false && value.Equals("1"))
             {
