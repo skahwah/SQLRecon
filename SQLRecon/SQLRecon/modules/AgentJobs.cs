@@ -72,16 +72,19 @@ namespace SQLRecon.Modules
         /// <param name="subSystem"></param>
         /// <param name="command">The commmand to execute on the remote SQL Server</param>
         /// <param name="impersonate">This is an optional parameter that is activated when impersonation is selected.</param>
-        internal static void StandardOrImpersonation(SqlConnection con, string sqlServer, string subSystem, string command, string impersonate = null)
+        /// <param name="proxyAccount">This is an optional parameter that specifies a SQL Agent proxy account for the job step.</param>
+        internal static void StandardOrImpersonation(SqlConnection con, string sqlServer, string subSystem, string command, string impersonate = null, string proxyAccount = null)
         {
             // Generate a new random 8 character job name and program name
-            string jobName = RandomStr.Generate(8); 
+            string jobName = RandomStr.Generate(8);
             string stepName = RandomStr.Generate(8);
-            
+
             // The queries dictionary contains all queries used by this module
             Dictionary<string, string> queries = new Dictionary<string, string>
-            { 
-                { "create_job", string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command) },
+            {
+                { "create_job", string.IsNullOrEmpty(proxyAccount)
+                    ? string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command)
+                    : string.Format(Query.CreateAgentJobWithProxy, jobName, stepName, subSystem, command, proxyAccount) },
                 { "execute_job", string.Format(Query.ExecuteAgentJob, jobName) },
                 { "delete_job",  string.Format(Query.DeleteAgentJob, jobName) }
             };
@@ -114,6 +117,11 @@ namespace SQLRecon.Modules
             
             Print.Status($"Setting job_name to '{jobName}'.", true);
             Print.Status($"Setting step_name to '{stepName}'.", true);
+
+            if (!string.IsNullOrEmpty(proxyAccount))
+            {
+                Print.Status($"Setting proxy_account to '{proxyAccount}'.", true);
+            }
 
             // Create a new SQL Agent job with the supplied command.
             // Impersonation is considered.
@@ -166,19 +174,22 @@ namespace SQLRecon.Modules
         /// <param name="command"></param>
         /// <param name="sqlServer"></param>
         /// <param name="linkedSqlServerChain"></param>
-        internal static void LinkedOrChain(SqlConnection con, string linkedSqlServer, string subSystem, string command, string sqlServer, string[] linkedSqlServerChain = null)
+        /// <param name="proxyAccount">This is an optional parameter that specifies a SQL Agent proxy account for the job step.</param>
+        internal static void LinkedOrChain(SqlConnection con, string linkedSqlServer, string subSystem, string command, string sqlServer, string[] linkedSqlServerChain = null, string proxyAccount = null)
         {
             // Generate a new random 8 character job name and program name
-            string jobName = RandomStr.Generate(8); 
+            string jobName = RandomStr.Generate(8);
             string stepName = RandomStr.Generate(8);
-            
+
             // The queries dictionary contains all queries used by this module
-            // The dictionary key name for RPC formatted queries must start with RPC 
+            // The dictionary key name for RPC formatted queries must start with RPC
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                { "rpc_create_job" ,string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command ) },  
-                { "rpc_execute_job" ,string.Format(Query.ExecuteAgentJob, jobName) },  
-                { "rpc_delete_job" ,string.Format(Query.DeleteAgentJob, jobName) }  
+                { "rpc_create_job", string.IsNullOrEmpty(proxyAccount)
+                    ? string.Format(Query.CreateAgentJob, jobName, stepName, subSystem, command)
+                    : string.Format(Query.CreateAgentJobWithProxy, jobName, stepName, subSystem, command, proxyAccount) },
+                { "rpc_execute_job", string.Format(Query.ExecuteAgentJob, jobName) },
+                { "rpc_delete_job",  string.Format(Query.DeleteAgentJob, jobName) }
             };
 
             if (linkedSqlServerChain == null)
@@ -217,6 +228,11 @@ namespace SQLRecon.Modules
             
             Print.Status($"Setting job_name to '{jobName}'.", true);
             Print.Status($"Setting step_name to '{stepName}'.", true);
+
+            if (!string.IsNullOrEmpty(proxyAccount))
+            {
+                Print.Status($"Setting proxy_account to '{proxyAccount}'.", true);
+            }
 
             Sql.CustomQuery(con, queries["rpc_create_job"]);
 

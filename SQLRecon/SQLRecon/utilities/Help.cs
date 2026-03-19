@@ -99,7 +99,7 @@ namespace SQLRecon.Utilities
                 { "DisableOle","[*,M,I,L,C] Disable OLE automation procedures." },
                 { "DisableXp","[*,M,I,L,C] Disable xp_cmdshell." },
                 { "AgentStatus","[*,M,I,L,C] Display if SQL agent is running and obtain agent jobs." },
-                { "AgentCmd /c:COMMAND","[*,M,I,L,C] Execute a system command using agent jobs." },
+                { "AgentCmd /c:COMMAND /subsystem:(OPTIONAL) /proxy:(OPTIONAL)","[*,M,I,L,C] Execute a system command using agent jobs. Subsystem defaults to 'PowerShell'. Supply /proxy: to run the job step under a SQL Agent proxy account." },
                 { "Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT","[*,M,I,L,C] Obtain cleartext ADSI credentials from a linked ADSI server." },
                 { "Clr /dll:DLL /function:FUNCTION","[*,M,I,L,C] Load and execute a .NET assembly in a custom stored procedure." },
                 { "OleCmd /c:COMMAND /subsystem:(OPTIONAL","[*,M,I,L,C] Execute a system command using OLE automation procedures." },

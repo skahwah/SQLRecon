@@ -116,7 +116,7 @@ SQL modules are executed against one or more instance of Microsoft SQL server. T
 | `DisableOle` | Disable OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `DisableXp` | Disable xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `AgentStatus` | Display if SQL agent is running and obtain agent jobs. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
-| `AgentCmd /c:COMMAND` | Execute a system command using agent jobs. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `AgentCmd /c:COMMAND /proxy:(OPTIONAL)` | Execute a system command using agent jobs. Optionally specify a SQL Agent proxy account with `/proxy:`. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT` | Obtain cleartext ADSI credentials from a linked ADSI server. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Clr /dll:DLL /function:FUNCTION` | Load and execute a .NET assembly in a custom stored procedure. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `OleCmd /c:COMMAND /subsystem:(OPTIONAL)` | Execute a system command using OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |

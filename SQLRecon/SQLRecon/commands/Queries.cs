@@ -25,6 +25,8 @@ namespace SQLRecon.Commands
         internal static readonly string CheckSccmDatabase = "select name FROM sys.tables WHERE name = 'RBAC_Admins';";
         
         internal static readonly string CreateAgentJob = "use msdb;EXEC dbo.sp_add_job @job_name = '{0}';EXEC sp_add_jobstep @job_name = '{0}', @step_name = '{1}', @subsystem = '{2}', @command = '{3}', @retry_attempts = 1, @retry_interval = 5;EXEC dbo.sp_add_jobserver @job_name = '{0}';";
+
+        internal static readonly string CreateAgentJobWithProxy = "use msdb;EXEC dbo.sp_add_job @job_name = '{0}';EXEC sp_add_jobstep @job_name = '{0}', @step_name = '{1}', @subsystem = '{2}', @command = '{3}', @retry_attempts = 1, @retry_interval = 5, @proxy_name = '{4}';EXEC dbo.sp_add_jobserver @job_name = '{0}';";
         
         internal static readonly string CreateAssembly = "CREATE ASSEMBLY {0} FROM 0x{1} WITH PERMISSION_SET = UNSAFE;";
         

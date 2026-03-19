@@ -122,19 +122,26 @@ namespace SQLRecon.Commands
             {
                 Var.Arg1 = "powershell";
             }
-            
+
+            // Check for optional /proxy argument
+            string proxyAccount = null;
+            if (Var.ParsedArguments.ContainsKey("proxy") && !string.IsNullOrEmpty(Var.ParsedArguments["proxy"]))
+            {
+                proxyAccount = Var.ParsedArguments["proxy"];
+            }
+
             Print.Status($"Executing '{Var.Arg2}' using the '{Var.Arg1}' subsystem.", true);
             Console.WriteLine();
-            
+
             switch (Var.Context)
             {
                 case "standard" or "impersonation":
                     // If the context is standard, then Var.Impersonate is null and logic is handled in the module.
-                    AgentJobs.StandardOrImpersonation(Var.Connect, Var.SqlServer, Var.Arg1, Var.Arg2, Var.Impersonate);
+                    AgentJobs.StandardOrImpersonation(Var.Connect, Var.SqlServer, Var.Arg1, Var.Arg2, Var.Impersonate, proxyAccount);
                     break;
                 case "linked" or "chained":
                     // If the context is linked, then Var.LinkedSqlServersChain is null and logic is handled in the module.
-                    AgentJobs.LinkedOrChain(Var.Connect, Var.LinkedSqlServer, Var.Arg1, Var.Arg2, Var.SqlServer, Var.LinkedSqlServersChain);
+                    AgentJobs.LinkedOrChain(Var.Connect, Var.LinkedSqlServer, Var.Arg1, Var.Arg2, Var.SqlServer, Var.LinkedSqlServersChain, proxyAccount);
                     break;
             }
         }
