@@ -93,6 +93,40 @@ namespace SQLRecon.Commands
                 DomainSpns.GetSqlSpns("");
             }
         }
+
+        /// <summary>
+        /// The credentialobjects method retrieves all SQL Server credential objects from sys.credentials.
+        /// This module requires SQL authentication.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void credentialobjects()
+        {
+            // These modules require SQL authentication to establish a connection.
+            if (!SetAuthenticationType.EvaluateAuthenticationType(Var.AuthenticationType)) return;
+
+            Print.Status($"Credential objects on {Var.SqlServer}.", true);
+            Console.WriteLine();
+
+            Console.WriteLine(Sql.CustomQuery(Var.Connect, Query.GetCredentialObjects));
+        }
+
+        /// <summary>
+        /// The proxies method retrieves all SQL Agent proxy accounts from msdb.dbo.sysproxies.
+        /// This module requires SQL authentication.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void proxies()
+        {
+            // These modules require SQL authentication to establish a connection.
+            if (!SetAuthenticationType.EvaluateAuthenticationType(Var.AuthenticationType)) return;
+
+            Print.Status($"SQL Agent proxy accounts on {Var.SqlServer}.", true);
+            Console.WriteLine();
+
+            Console.WriteLine(Sql.CustomQuery(Var.Connect, Query.GetProxies));
+        }
     }
 
     /// <summary>
