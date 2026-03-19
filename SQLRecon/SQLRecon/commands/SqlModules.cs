@@ -115,7 +115,7 @@ namespace SQLRecon.Commands
                 }
                 else
                 {
-                    Print.Error($"'{Var.Arg1}' is not a valid subsystem that be be used with SQL agent jobs.", true);
+                    Print.Error($"'{Var.Arg1}' is not a valid subsystem that can be used with SQL agent jobs.", true);
                 }
             }
             else

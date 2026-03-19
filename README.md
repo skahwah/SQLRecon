@@ -116,7 +116,8 @@ SQL modules are executed against one or more instance of Microsoft SQL server. T
 | `DisableOle` | Disable OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `DisableXp` | Disable xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `AgentStatus` | Display if SQL agent is running and obtain agent jobs. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
-| `AgentCmd /c:COMMAND /proxy:(OPTIONAL)` | Execute a system command using agent jobs. Optionally specify a SQL Agent proxy account with `/proxy:`. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `AgentCmd /c:COMMAND /subsystem:(OPTIONAL) /proxy:(OPTIONAL)` | Execute a system command using agent jobs. Optionally specify a subsystem with `/subsystem:`, this defaults to 'PowerShell'. Optionally specify a SQL Agent proxy account with `/proxy:`. | 
+:white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT` | Obtain cleartext ADSI credentials from a linked ADSI server. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Clr /dll:DLL /function:FUNCTION` | Load and execute a .NET assembly in a custom stored procedure. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `OleCmd /c:COMMAND /subsystem:(OPTIONAL)` | Execute a system command using OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
@@ -211,6 +212,7 @@ The goal is to continuously improve SQLRecon. Listed below are some planned rese
 The following people have contributed either directly or indirectly to various aspects of SQLRecon.
 
 - Adam Chester [(xpn)](https://github.com/xpn)
+- Andrew Smith [(jakxx)](https://github.com/jakxx)
 - Azaël Martin [(n3rada)](https://github.com/n3rada)
 - Crusher [(chryzsh)](https://github.com/chryzsh)
 - Daniel Duggan [(rasta-mouse)](https://github.com/rasta-mouse)
@@ -220,6 +222,18 @@ The following people have contributed either directly or indirectly to various a
 - Joshua Magri [(passthehashbrowns)](https://github.com/passthehashbrowns)
 
 # History
+
+<details>
+<summary>v3.12</summary>
+
+* Added proxy support to `agentcmd` (jakxx)
+* Resolved `role` enumeration not working properly over linked chain (passthehashbrowns)
+* Resolved `impersonate` module not working properly over linked chain (passthehashbrowns)
+* Resolved `EnableRpc`/`DisableRpc` not being available over linked chains (passthehashbrowns)
+* Resolved `XpCmd` module not working over linked chains, also supports output now (passthehashbrowns)
+* Resolved issues where linked server names that contain a '.' character cause issues when used in `EXEC AT` queries unless they are surrounded by brackets, this causes problems if the linked server name is an IP address or an FQDN (passthehashbrowns)
+* Made tweaks to the logic for constructing a linked server chain query. The existing logic uses recursion and the base case expects a "0" to be the first element in the array, but this causes unintuitive behavior when developing modules where it is necessary to iterate over the linked chain such as the .First function returning a "0". I updated it so that the `LinkedChainQuery` function creates a new array with a "0" at the front and then calls the existing logic in a separate function, now called `LinkedChainQueryRecurse`. (passthehashbrowns)
+</details>
 
 <details>
 <summary>v3.11</summary>

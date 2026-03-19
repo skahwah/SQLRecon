@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.10");
+            Console.WriteLine("Version: 3.12");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
