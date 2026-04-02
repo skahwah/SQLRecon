@@ -1,5 +1,7 @@
-﻿using System.Data.SqlClient;
+﻿using System;
+using System.Data.SqlClient;
 using SQLRecon.Commands;
+using SQLRecon.Utilities;
 
 namespace SQLRecon.Utilities
 {
@@ -26,6 +28,8 @@ namespace SQLRecon.Utilities
                     return _entraId(authType);
                 case "azurelocal":
                     return _azureLocal(authType);
+                case "pth":
+                    return _pth();
                 default:
                     Print.Error("Set a valid authentication type.", true);
                     return false;
@@ -61,6 +65,26 @@ namespace SQLRecon.Utilities
                 case "azurelocal":
                     connection = SqlAuthentication.AzureLocalAuthentication(serverInfo, Var.Database, Var.Username, Var.Password);
                     break;
+                case "pth":
+                    // Create a new PTHTdsConnection (used in multi-host loops and for second
+                    // connections such as the ADSI module's cleanup connection).
+                    // We do NOT dispose the previous PthState.Connection here because it may
+                    // still be in active use (e.g. the ADSI background LDAP listener task holds
+                    // a sentinel whose Unwrap() still points to the previous connection).
+                    try
+                    {
+                        byte[] ntHash = NtlmHelper.ParseNtHash(Var.Hash);
+                        var newCon = new PTHTdsConnection(
+                            Var.SqlServer, int.Parse(Var.Port), Var.Database,
+                            Var.Domain, Var.Username, ntHash);
+                        PthState.Connection = newCon;
+                        return PthState.Wrap(newCon);
+                    }
+                    catch (Exception ex)
+                    {
+                        Print.Error(ex.Message, true);
+                        return null;
+                    }
                 default:
                     Print.Error("Set a valid authentication type.", true);
                     return null;
@@ -191,9 +215,9 @@ namespace SQLRecon.Utilities
         /// <returns>True if the connection is successfully created, false otherwise.</returns>
         private static bool _azureLocal(string authType)
         {
-            if (authType.ToLower().Equals("azurelocal") && 
-                !string.IsNullOrEmpty(Var.SqlServer) && 
-                !string.IsNullOrEmpty(Var.Username) && 
+            if (authType.ToLower().Equals("azurelocal") &&
+                !string.IsNullOrEmpty(Var.SqlServer) &&
+                !string.IsNullOrEmpty(Var.Username) &&
                 !string.IsNullOrEmpty(Var.Password))
             {
                 // Create the SQL connection object
@@ -204,6 +228,44 @@ namespace SQLRecon.Utilities
             {
                 Print.Error("Must supply a SQL server (/h:, /host:), username (/u:, /username:), and password (/p: /password:).", true);
                 // Go no further
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The _pth method is called if the authentication type is Pth (pass-the-hash).
+        /// Authenticates directly over TDS using NTLM without requiring a plaintext password.
+        /// No elevated privileges are required.
+        /// </summary>
+        /// <returns>True if the connection is successfully established, false otherwise.</returns>
+        private static bool _pth()
+        {
+            if (!string.IsNullOrEmpty(Var.SqlServer) &&
+                !string.IsNullOrEmpty(Var.Domain) &&
+                !string.IsNullOrEmpty(Var.Username) &&
+                !string.IsNullOrEmpty(Var.Hash))
+            {
+                try
+                {
+                    byte[] ntHash = NtlmHelper.ParseNtHash(Var.Hash);
+                    PthState.Connection = new PTHTdsConnection(
+                        Var.SqlServer, int.Parse(Var.Port), Var.Database,
+                        Var.Domain, Var.Username, ntHash);
+                    // Wrap the PTHTdsConnection in a dummy SqlConnection sentinel so that
+                    // Sql.Query/CustomQuery/NonQuery can route to it via PthState.Unwrap(con).
+                    Var.Connect = PthState.Wrap(PthState.Connection);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Print.Error(ex.Message, true);
+                    return false;
+                }
+            }
+            else
+            {
+                Print.Error("Must supply a SQL server (/h:, /host:), domain (/d:, /domain:), " +
+                            "username (/u:, /username:), and NT hash (/hash:).", true);
                 return false;
             }
         }

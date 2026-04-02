@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.12");
+            Console.WriteLine("Version: 4.0");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
@@ -40,6 +40,11 @@ namespace SQLRecon.Utilities
             _nested(13, "/d:, /domain:   -> NETBIOS name or FQDN of domain.");
             _nested(13, "/u:, /username: -> Username for domain user.");
             _nested(13, "/p:, /password: -> Password for domain user.");
+            Console.WriteLine("Pth        - Authenticate using an NT hash (pass-the-hash) over raw TDS/NTLM.");
+            _nested(13, "/h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.");
+            _nested(13, "/d:, /domain:   -> NETBIOS domain name.");
+            _nested(13, "/u:, /username: -> Domain username.");
+            _nested(13, "/hash:          -> NT hash (32 hex chars) or LM:NT format. Elevated privileges or SeImpersonate is not required.");
             Console.WriteLine("Local      - Use local SQL credentials to authenticate against the SQL database.");
             _nested(13, "/h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.");
             _nested(13, "/u:, /username: -> Username for local SQL user.");
@@ -101,8 +106,10 @@ namespace SQLRecon.Utilities
                 { "AgentStatus","[*,M,I,L,C] Display if SQL agent is running and obtain agent jobs." },
                 { "AgentCmd /c:COMMAND /subsystem:(OPTIONAL) /proxy:(OPTIONAL)","[*,M,I,L,C] Execute a system command using agent jobs. Subsystem defaults to 'PowerShell'. Supply /proxy: to run the job step under a SQL Agent proxy account." },
                 { "Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT","[*,M,I,L,C] Obtain cleartext ADSI credentials from a linked ADSI server." },
+                { "CredentialObjects","[*,M,I,L,C] Obtain credential objects from sys.credentials." },
                 { "Clr /dll:DLL /function:FUNCTION","[*,M,I,L,C] Load and execute a .NET assembly in a custom stored procedure." },
                 { "OleCmd /c:COMMAND /subsystem:(OPTIONAL","[*,M,I,L,C] Execute a system command using OLE automation procedures." },
+                { "Proxies","[*,M,I,L,C] Obtain SQL agent proxy information." },
                 { "XpCmd /c:COMMAND","[*,M,I,L,C] Execute a system command using xp_cmdshell." }
             };
             

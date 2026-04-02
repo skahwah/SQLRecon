@@ -76,26 +76,28 @@ namespace SQLRecon.Modules
             string program = RandomStr.Generate(8);
             bool status;
             
-            // The queries dictionary contains all queries used by this module
+            // The queries dictionary contains all queries used by this module.
+            // rpc_ prefix routes through EXEC AT (not OPENQUERY) — required because OLE automation
+            // stored procs cannot execute through nested OPENQUERY.
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                { "execute_ole", string.Format(Query.OleLinkedExecution, output, program, command) }
+                { "rpc_execute_ole", string.Format(Query.OleExecution, output, program, command) }
             };
 
             if (linkedSqlServerChain == null)
             {
                 // Format all queries so that they are compatible for execution on a linked SQL server.
                 queries = Format.LinkedDictionary(linkedSqlServer, queries);
-                
-                // First check to see if xp_cmdshell is enabled.
+
+                // First check to see if OLE Automation Procedures is enabled.
                 status = Config.LinkedModuleStatus(con, "Ole Automation Procedures", linkedSqlServer);
             }
             else
             {
                 // Format all queries so that they are compatible for execution on the last SQL server specified in a linked chain.
                 queries = Format.LinkedChainDictionary(linkedSqlServerChain, queries);
-                
-                // First check to see if xp_cmdshell is enabled.
+
+                // First check to see if OLE Automation Procedures is enabled.
                 status = Config.LinkedModuleStatus(con, "Ole Automation Procedures", null, linkedSqlServerChain);
             }
             
@@ -115,8 +117,8 @@ namespace SQLRecon.Modules
             
             Print.Status($"Setting sp_oacreate to '{output}'.", true);
             Print.Status($"Setting sp_oamethod to '{program}'.", true);
-            
-            _printStatus(output, program, Sql.CustomQuery(con, queries["execute_ole"]));
+
+            _printStatus(output, program, Sql.CustomQuery(con, queries["rpc_execute_ole"]));
         }
 
         /// <summary>

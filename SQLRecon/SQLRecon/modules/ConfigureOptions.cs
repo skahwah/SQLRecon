@@ -68,7 +68,7 @@ namespace SQLRecon.Modules
             // The queries dictionary contains all queries used by this module
             Dictionary<string, string> queries = new Dictionary<string, string>
             {
-                {"get_rpc_status", string.Format(Query.GetRpcStatus, linkedSqlServer.ToLower())},
+                {"get_rpc_status", string.Format(Query.GetRpcStatus, (linkedSqlServer ?? "").ToLower())},
                 { "get_module_status", string.Format(Query.GetModuleStatus, module) }
             };
 

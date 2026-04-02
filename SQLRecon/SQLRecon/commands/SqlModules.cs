@@ -315,6 +315,38 @@ namespace SQLRecon.Commands
         }
 
         /// <summary>
+        /// The credentialobjects method checks to see if SQL server has any credential objects in sys.credentials.
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// impersonation, linked SQL servers, and chained SQL servers.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void credentialobjects()
+        {
+            switch(Var.Context) 
+            { 
+                case "standard": 
+                    _query = Query.GetCredentialObjects;
+                    break;
+                case "impersonation": 
+                    _query = Format.ImpersonationQuery(Var.Impersonate, Query.GetCredentialObjects);
+                    break;
+                case "linked":
+                    _query = Format.LinkedQuery(Var.LinkedSqlServer, Query.GetCredentialObjects);
+                    break;
+                case "chained":
+                    _query = Format.LinkedChainQuery(Var.LinkedSqlServersChain, Query.GetCredentialObjects);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+            
+            Console.WriteLine();
+            Print.IsOutputEmpty(Sql.CustomQuery(Var.Connect, _query), true);
+        }
+
+        /// <summary>
         /// The databases method shows all configured databases on a SQL server.
         /// This module supports execution against SQL server using a standard authentication context,
         /// impersonation, linked SQL servers, and chained SQL servers.
@@ -674,16 +706,16 @@ namespace SQLRecon.Commands
                         {
 
                             case "standard":
-                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, login);
                                 break;
                             case "impersonation":
-                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, login);
                                 break;
                             case "linked":
-                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer);
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, login, Var.LinkedSqlServer);
                                 break;
                             case "chained":
-                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer, Var.LinkedSqlServersChain);
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, login, Var.LinkedSqlServer, Var.LinkedSqlServersChain);
                                 break;
                             default:
                                 Print.Error($"'{Var.Context}' is not a valid context.", true);
@@ -797,6 +829,38 @@ namespace SQLRecon.Commands
                     Ole.LinkedOrChain(Var.Connect, Var.Arg1, Var.LinkedSqlServer, Var.LinkedSqlServersChain);
                     break;
             }
+        }
+
+        /// <summary>
+        /// The proxies method checks to see if SQL server has any SQL server agent proxy information in dbo.sysproxies.
+        /// This module supports execution against SQL server using a standard authentication context,
+        /// impersonation, linked SQL servers, and chained SQL servers.
+        /// This method needs to be public as reflection is used to match the
+        /// module name that is supplied via command line, to the actual method name.
+        /// </summary>
+        public static void proxies()
+        {
+            switch(Var.Context) 
+            { 
+                case "standard": 
+                    _query = Query.GetProxies;
+                    break;
+                case "impersonation": 
+                    _query = Format.ImpersonationQuery(Var.Impersonate, Query.GetProxies);
+                    break;
+                case "linked":
+                    _query = Format.LinkedQuery(Var.LinkedSqlServer, Query.GetProxies);
+                    break;
+                case "chained":
+                    _query = Format.LinkedChainQuery(Var.LinkedSqlServersChain, Query.GetProxies);
+                    break;
+                default:
+                    Print.Error($"'{Var.Context}' is not a valid context.", true);
+                    break;
+            }
+            
+            Console.WriteLine();
+            Print.IsOutputEmpty(Sql.CustomQuery(Var.Connect, _query), true);
         }
 
         /// <summary>
