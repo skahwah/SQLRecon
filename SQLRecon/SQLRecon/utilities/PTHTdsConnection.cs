@@ -750,7 +750,12 @@ namespace SQLRecon.Utilities
                     ushort len = NtlmHelper.ReadU16(ts, pos); pos += 2;
                     if (len == 0xFFFF) return ""; // NULL
                     if (len == 0) return "";
-                    if (col.IsBinary) { pos += len; return "[binary data]"; }
+                    if (col.IsBinary)
+                    {
+                        string hex = "0x" + BitConverter.ToString(ts, pos, len).Replace("-", "");
+                        pos += len;
+                        return hex;
+                    }
                     string val = col.IsUnicode
                         ? Encoding.Unicode.GetString(ts, pos, len)
                         : Encoding.Default.GetString(ts, pos, len);
