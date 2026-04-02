@@ -182,8 +182,8 @@ namespace SQLRecon.Utilities
         {
             string currentQuery = query;
 
-            // Start from the end of the array and skip the first element ("0")
-            for (int i = linkedSqlServerChain.Length - 1; i > 0; i--)
+            // Start from the end of the array and wrap every hop, including index 0 (first linked server).
+            for (int i = linkedSqlServerChain.Length - 1; i >= 0; i--)
             {
                 string server = linkedSqlServerChain[i];
                 
