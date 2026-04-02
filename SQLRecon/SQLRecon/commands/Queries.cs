@@ -79,7 +79,9 @@ namespace SQLRecon.Commands
         internal static readonly string GetColumns = "use {0}; SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{1}' ORDER BY ORDINAL_POSITION;";
         
         internal static readonly string GetComputerName = "SELECT @@SERVERNAME;"; 
-        
+
+        internal static readonly string GetCredentialObjects = "SELECT * FROM sys.credentials;";
+
         internal static readonly string GetCurrentLogon = "SELECT SYSTEM_USER;";
         
         internal static readonly string GetDatabases = "SELECT dbid, name, crdate, filename FROM master.dbo.sysdatabases;";
@@ -115,7 +117,9 @@ namespace SQLRecon.Commands
         internal static readonly string GetPermissions = "SELECT permission_name FROM fn_my_permissions(NULL, '{0}');";
         
         internal static readonly string GetPrincipals = "SELECT name, type_desc, is_disabled, create_date, modify_date FROM sys.server_principals WHERE name NOT LIKE '##%' ORDER BY modify_date DESC;";
-        
+
+        internal static readonly string GetProxies = "SELECT * FROM msdb.dbo.sysproxies;";
+
         internal static readonly string GetRowCount = "use {0}; SELECT COUNT(*) as row_count FROM {1};";
         
         internal static readonly string GetRpcStatus = "SELECT is_rpc_out_enabled FROM sys.servers WHERE lower(name) like '%{0}%';";

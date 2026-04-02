@@ -125,7 +125,9 @@ SQL modules are executed against one or more instance of Microsoft SQL server. T
 | `AgentCmd /c:COMMAND /subsystem:(OPTIONAL) /proxy:(OPTIONAL)` | Execute a system command using agent jobs. Optionally specify a subsystem with `/subsystem:`, this defaults to 'PowerShell'. Optionally specify a SQL Agent proxy account with `/proxy:`. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Adsi /adsi:SERVER_NAME /lport:LOCAL_PORT` | Obtain cleartext ADSI credentials from a linked ADSI server. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `Clr /dll:DLL /function:FUNCTION` | Load and execute a .NET assembly in a custom stored procedure. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `CredentialObjects` | Obtain credential objects from sys.credentials. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `OleCmd /c:COMMAND /subsystem:(OPTIONAL)` | Execute a system command using OLE automation procedures. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
+| `Proxies` | Obtain SQL agent proxy information. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 | `XpCmd /c:COMMAND` | Execute a system command using xp_cmdshell. | :white_check_mark: | :white_check_mark: | :white_check_mark: | :heavy_check_mark: |
 
 ### SQL Modules - Standard
@@ -230,26 +232,33 @@ The following people have contributed either directly or indirectly to various a
 <details>
 <summary>v4.0</summary>
 
-* Added NTLM pass-the-hash authentication provider (`/auth:pth`). This uses raw TDS client over TcpClient. No Windows auth stack. Elevated privileges or SeImpersonate is not required.
-* Bug fixes in impersonation module
+* Added NTLM pass-the-hash authentication provider (`/auth:pth`). Implements raw TDS/NTLM authentication via PTHTdsConnection, NtlmHelper, and PthState so that all modules work without plaintext credentials or elevated privileges. Key fixes include post-login ANSI session options, multi-packet TDS splitting, TCP flow deadlock handling for concurrent CLR connections, and OPENQUERY bracket notation compatibility.
+* Bug fixes in impersonation modules.
+* Bug fixes in adsi modules.
+* Bug fixes in ole modules.
+* Bug fixes in `_linkedChainRpcQuery`
+* Fixed a long standing issue where `System.Byte[]` was never properly converted and printed to console.
+* Added `credentialobjectss` and `proxies` modules (jakxx).
+* Updated README.md
+* Updated Wiki
 </details>
 
 <details>
 <summary>v3.12</summary>
 
-* Added proxy support to `agentcmd` (jakxx)
-* Resolved `role` enumeration not working properly over linked chain (passthehashbrowns)
-* Resolved `impersonate` module not working properly over linked chain (passthehashbrowns)
-* Resolved `EnableRpc`/`DisableRpc` not being available over linked chains (passthehashbrowns)
-* Resolved `XpCmd` module not working over linked chains, also supports output now (passthehashbrowns)
-* Resolved issues where linked server names that contain a '.' character cause issues when used in `EXEC AT` queries unless they are surrounded by brackets, this causes problems if the linked server name is an IP address or an FQDN (passthehashbrowns)
-* Made tweaks to the logic for constructing a linked server chain query. The existing logic uses recursion and the base case expects a "0" to be the first element in the array, but this causes unintuitive behavior when developing modules where it is necessary to iterate over the linked chain such as the .First function returning a "0". I updated it so that the `LinkedChainQuery` function creates a new array with a "0" at the front and then calls the existing logic in a separate function, now called `LinkedChainQueryRecurse`. (passthehashbrowns)
+* Added proxy support to `agentcmd` (jakxx).
+* Resolved `role` enumeration not working properly over linked chain (passthehashbrowns).
+* Resolved `impersonate` module not working properly over linked chain (passthehashbrowns).
+* Resolved `EnableRpc`/`DisableRpc` not being available over linked chains (passthehashbrowns).
+* Resolved `XpCmd` module not working over linked chains, also supports output now (passthehashbrowns).
+* Resolved issues where linked server names that contain a '.' character cause issues when used in `EXEC AT` queries unless they are surrounded by brackets, this causes problems if the linked server name is an IP address or an FQDN (passthehashbrowns).
+* Made tweaks to the logic for constructing a linked server chain query. The existing logic uses recursion and the base case expects a "0" to be the first element in the array, but this causes unintuitive behavior when developing modules where it is necessary to iterate over the linked chain such as the .First function returning a "0". I updated it so that the `LinkedChainQuery` function creates a new array with a "0" at the front and then calls the existing logic in a separate function, now called `LinkedChainQueryRecurse` (passthehashbrowns).
 </details>
 
 <details>
 <summary>v3.11</summary>
 
-* Added functionality to allow for decrypting vaulted credentials in sites configured for High Availability (with active + passive servers)
+* Added functionality to allow for decrypting vaulted credentials in sites configured for High Availability (with active + passive servers).
 </details>
 
 <details>

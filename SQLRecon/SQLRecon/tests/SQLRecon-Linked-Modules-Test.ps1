@@ -10,7 +10,7 @@
 #>
 $global:timeout = 1
 $global:count = 1
-$global:modules = 37
+$global:modules = 39
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -126,6 +126,8 @@ Execute "$sqlreconPath /a:$authentication /h:$server3 /l:$server4 /m:enableole"
 Execute "$sqlreconPath /a:$authentication /h:$server3 /l:$server4 /m:enablexp"
 Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:adsi /adsi:adsilink /lport:30000"
 Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:agentstatus"
+Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:credentialobjects"
+Execute "$sqlreconPath /a:$authentication /h:$server2 /l:$server3 /m:proxies"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:agentcmd /subsystem:cmdexec /command:'c:\temp\mb-link-1.exe'"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:agentcmd /c:'notepad'"
 Execute "$sqlreconPath /a:$authentication /h:$server1 /l:$server2 /m:clr /dll:'c:\temp\sql-link.dll' /function:CustomFunctionName"

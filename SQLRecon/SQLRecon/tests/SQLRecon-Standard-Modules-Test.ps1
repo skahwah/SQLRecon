@@ -9,7 +9,7 @@
     changed to match the number of test cases you execute.
 #>
 $global:count = 1
-$global:modules = 72
+$global:modules = 74
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -159,6 +159,8 @@ Execute "$sqlreconPath /auth:$authentication /host:$server1,$server2,$server3,$s
 Execute "$sqlreconPath /auth:$authentication /host:$server1,$server2,$server3,$server4 /m:enablexp"
 Execute "$sqlreconPath /auth:$authentication /host:$server3 /m:adsi /adsi:adsilink /lport:30000"
 Execute "$sqlreconPath /auth:$authentication /host:$server2 /m:agentstatus"
+Execute "$sqlreconPath /auth:$authentication /host:$server3 /m:credentialobjects"
+Execute "$sqlreconPath /auth:$authentication /host:$server3 /m:proxies"
 Execute "$sqlreconPath /auth:$authentication /host:$server2 /m:agentcmd /subsystem:cmdexec /command:'c:\temp\mb-standard-1.exe'"
 Execute "$sqlreconPath /auth:$authentication /host:$server2 /m:agentcmd /c:'notepad'"
 Execute "$sqlreconPath /auth:$authentication /host:$server2 /module:clr /dll:'c:\temp\sql-standard.dll' /function:CustomFunctionName"

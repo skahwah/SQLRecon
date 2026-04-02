@@ -9,7 +9,7 @@
     changed to match the number of test cases you execute.
 #>
 $global:count = 1
-$global:modules = 39
+$global:modules = 41
 $global:timestamp = Get-Date -Format "MM-dd-yyyy-HH-mm"
 
 <#
@@ -130,6 +130,8 @@ Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server1,$serve
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server1,$server2,$server3,$server4 /m:enablexp"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server3 /m:adsi /adsi:adsilink /lport:30000"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:agentstatus"
+Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server3 /m:credentialobjects"
+Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server3 /m:proxies"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:agentcmd /subsystem:cmdexec /command:'c:\temp\mb-impersonate-1.exe'"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /m:agentcmd /c:'notepad'"
 Execute "$sqlreconPath /a:$authentication /i:$impersonateUser /h:$server2 /module:clr /dll:'c:\temp\sql-impersonate.dll' /function:CustomFunctionName"
