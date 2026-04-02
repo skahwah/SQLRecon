@@ -74,6 +74,12 @@ AzureLocal - Use local SQL credentials to authenticate against the Azure SQL dat
              /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
              /u:, /username: -> Username for local SQL user.
              /p:, /password: -> Password for local SQL user.
+
+Pth        - Authenticate using an NT hash (pass-the-hash) over raw TDS/NTLM. Elevated privileges or SeImpersonate is not required.
+             /h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.
+             /d:, /domain:   -> NETBIOS domain name.
+             /u:, /username: -> Domain username.
+             /hash:          -> NT hash (32 hex chars, 8846f7eaee8fb117ad06bdd830b7586c) or LM:NT format.
 ```
 
 ### Authentication Providers - Additional Details
@@ -221,6 +227,12 @@ The following people have contributed either directly or indirectly to various a
 - Joshua Magri [(passthehashbrowns)](https://github.com/passthehashbrowns)
 
 # History
+<details>
+<summary>v4.0</summary>
+
+* Added NTLM pass-the-hash authentication provider (`/auth:pth`). This uses raw TDS client over TcpClient. No Windows auth stack. Elevated privileges or SeImpersonate is not required.
+* Bug fixes in impersonation module
+</details>
 
 <details>
 <summary>v3.12</summary>

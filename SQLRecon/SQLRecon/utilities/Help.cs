@@ -13,7 +13,7 @@ namespace SQLRecon.Utilities
         {
             Console.WriteLine("");
             Console.WriteLine("SQLRecon");
-            Console.WriteLine("Version: 3.12");
+            Console.WriteLine("Version: 4.0");
             Console.WriteLine("Wiki: github.com/skahwah/SQLRecon");
             
             Console.WriteLine("");
@@ -53,6 +53,11 @@ namespace SQLRecon.Utilities
             _nested(13, "/h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.");
             _nested(13, "/u:, /username: -> Username for local SQL user.");
             _nested(13, "/p:, /password: -> Password for local SQL user.");
+            Console.WriteLine("Pth        - Authenticate using an NT hash (pass-the-hash) over raw TDS/NTLM.");
+            _nested(13, "/h:, /host:     -> SQL server hostname or IP. Multiple hosts supported.");
+            _nested(13, "/d:, /domain:   -> NETBIOS domain name.");
+            _nested(13, "/u:, /username: -> Domain username.");
+            _nested(13, "/hash:          -> NT hash (32 hex chars) or LM:NT format. Elevated privileges or SeImpersonate is not required.");
             Console.WriteLine("OPTIONAL   - The following arguments are supported by all providers and modules.");
             _nested(13, "/database:      -> (OPTIONAL) SQL server database name, defaults to 'master'.");
             _nested(13, "/debug          -> (OPTIONAL) Display queries used by a module, but do not execute.");

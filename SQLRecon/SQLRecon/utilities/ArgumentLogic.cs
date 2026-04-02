@@ -245,6 +245,7 @@ namespace SQLRecon.Utilities
             // references throughout the program.
             Var.AuthenticationType = parsedArguments.ContainsKey("auth") ? parsedArguments["auth"].ToLower() : null;
             Var.Domain = parsedArguments.ContainsKey("domain") ? parsedArguments["domain"] : null;
+            Var.Hash = parsedArguments.ContainsKey("hash") ? parsedArguments["hash"] : null;
             Var.EnumerationModule = parsedArguments.ContainsKey("enum") ? parsedArguments["enum"] : null;
             Var.Impersonate = parsedArguments.ContainsKey("iuser") ? parsedArguments["iuser"] : null;
             Var.LinkedSqlServerChain = parsedArguments.ContainsKey("chain");

@@ -183,33 +183,15 @@ namespace SQLRecon.Modules
              */
             if (string.IsNullOrEmpty(impersonate))
             {
-                try
-                {
-                    SqlCommand query = new(queries["load_dll_into_stored_procedure"], con);
-
-                    query.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                    Print.Error($"{e}", true);
-                }
+                Sql.NonQuery(con, queries["load_dll_into_stored_procedure"]);
             }
             else
             {
-                try
-                {
-                    SqlCommand query = new(queries["login"], con);
-
-                    query.ExecuteNonQuery();
-
-                    query = new(queries["load_dll_into_stored_procedure"], con);
-                
-                    query.ExecuteNonQuery();
-                }
-                catch (Exception e)
-                {
-                    Print.Error($"{e}", true);
-                }
+                // Run EXECUTE AS LOGIN first (establishes impersonation context on the connection),
+                // then CREATE PROCEDURE in that context. These must be separate batches because
+                // CREATE/ALTER PROCEDURE must be the first statement in a query batch.
+                Sql.NonQuery(con, queries["login"]);
+                Sql.NonQuery(con, queries["load_dll_into_stored_procedure"]);
             }
             
             sqlOutput = Sql.CustomQuery(con, queries["list_stored_procedures"]);
@@ -420,16 +402,7 @@ namespace SQLRecon.Modules
              * 'CREATE/ALTER PROCEDURE' must be the first statement in a query batch.
              */
             
-            try
-            {
-                SqlCommand query = new(queries["rpc_load_dll_into_stored_procedure"], con);
-                
-                query.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                Print.Error($"{e}", true);
-            }
+            Sql.NonQuery(con, queries["rpc_load_dll_into_stored_procedure"]);
 
             sqlOutput = Sql.CustomQuery(con, queries["list_stored_procedures"]);
             

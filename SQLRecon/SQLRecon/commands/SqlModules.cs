@@ -674,16 +674,16 @@ namespace SQLRecon.Commands
                         {
 
                             case "standard":
-                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, login);
                                 break;
                             case "impersonation":
-                                canImpersonate = Roles.CheckImpersonation(Var.Connect, "sysadmin");
+                                canImpersonate = Roles.CheckImpersonation(Var.Connect, login);
                                 break;
                             case "linked":
-                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer);
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, login, Var.LinkedSqlServer);
                                 break;
                             case "chained":
-                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, "sysadmin", Var.LinkedSqlServer, Var.LinkedSqlServersChain);
+                                canImpersonate = Roles.CheckLinkedServerImpersonation(Var.Connect, login, Var.LinkedSqlServer, Var.LinkedSqlServersChain);
                                 break;
                             default:
                                 Print.Error($"'{Var.Context}' is not a valid context.", true);

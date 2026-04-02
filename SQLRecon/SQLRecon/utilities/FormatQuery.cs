@@ -121,7 +121,7 @@ namespace SQLRecon.Utilities
             query = query.Replace("'", "''");
 
             return (rpc == false)
-                ? "SELECT * FROM OPENQUERY(\"" + linkedSqlServer + "\", '" + query + "')"
+                ? "SELECT * FROM OPENQUERY([" + linkedSqlServer + "], '" + query + "')"
                 : "EXECUTE ('" + query + "') AT [" + linkedSqlServer + "];";
         }
 
@@ -153,10 +153,10 @@ namespace SQLRecon.Utilities
             }
 
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append("SELECT * FROM OPENQUERY(\"");
+            stringBuilder.Append("SELECT * FROM OPENQUERY([");
             stringBuilder.Append(linkedSqlServerChain[1]);
             // Taking the next server in the path.
-            stringBuilder.Append("\", ");
+            stringBuilder.Append("], ");
             stringBuilder.Append(new string('\'', (int)Math.Pow(2, ticks)));
 
             // Recursively build the nested query for the rest of the path.

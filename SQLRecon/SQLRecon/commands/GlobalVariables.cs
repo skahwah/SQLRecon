@@ -132,6 +132,8 @@ namespace SQLRecon.Commands
 
         internal static string Domain { get; set; }
 
+        internal static string Hash { get; set; }
+
         internal static string EnumerationModule { get; set; }
 
         internal static string Impersonate { get; set; }
