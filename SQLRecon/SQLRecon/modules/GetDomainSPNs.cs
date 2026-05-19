@@ -23,7 +23,7 @@ namespace SQLRecon.Modules
 
             Ldap ldap = new Ldap(searcher);
 
-            const string ldapFilter = "(&(sAMAccountType=805306368)(servicePrincipalName=MSSQL*))";
+            const string ldapFilter = "(servicePrincipalName=MSSQL*)";
             string[] properties = new[] { "cn", "samaccountname", "objectsid", "serviceprincipalname", "lastlogon" };
 
             Dictionary<string, Dictionary<string, object[]>> results = ldap.ExecuteLdapQuery(ldapFilter, properties);
